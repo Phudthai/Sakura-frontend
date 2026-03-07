@@ -6,8 +6,9 @@ import {
   X, ExternalLink, Loader2,
   TrendingUp,
 } from 'lucide-react'
-import type { TrackedAuction } from './search-link-tab'
-import { formatJPY, Countdown } from './search-link-tab'
+import type { TrackedAuction } from '@/types/auction'
+import { formatJPY, getHostname } from '@/lib/utils'
+import { Countdown } from './search-link-tab'
 
 interface PriceLog {
   id: number
@@ -24,7 +25,7 @@ async function fetchPriceLogs(auctionId: number): Promise<PriceLog[]> {
     const res = await fetch(`/api/auction-requests/${auctionId}/price-logs`)
     const json = await res.json()
     if (!res.ok) return []
-    const logs = json.data?.logs ?? json.data ?? json.logs ?? []
+    const logs = json.data?.logs ?? json.data ?? []
     return Array.isArray(logs) ? logs : []
   } catch {
     return []
@@ -56,17 +57,16 @@ export default function AuctionDetailModal({ auction, onClose }: Props) {
   )
 
   useEffect(() => {
+    const prev = document.body.style.overflow
     document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = ''
+      document.body.style.overflow = prev
     }
   }, [handleKeyDown])
 
-  const hostname = (() => {
-    try { return new URL(url).hostname.replace('www.', '') } catch { return url }
-  })()
+  const hostname = getHostname(url)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -148,7 +148,7 @@ export default function AuctionDetailModal({ auction, onClose }: Props) {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span className="text-sm">กำลังโหลด...</span>
                 </div>
-              ) : !Array.isArray(priceLogs) || priceLogs.length === 0 ? (
+              ) : priceLogs.length === 0 ? (
                 <p className="text-sm text-muted py-4 text-center">ยังไม่มีประวัติราคา</p>
               ) : (
                 <div className="border border-card-border rounded-xl overflow-hidden">

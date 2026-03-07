@@ -1,52 +1,18 @@
 'use client'
 
-import { useState, useEffect, useRef, type FormEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
 import Image from 'next/image'
 import {
   Link2, Send, CheckCircle2, ExternalLink,
   Timer, AlertCircle, Loader2, RefreshCw, TrendingUp,
 } from 'lucide-react'
 import AuctionDetailModal from './auction-detail-modal'
+import type { AuctionData, TrackedAuction, LastBid } from '@/types/auction'
+import { BID_STATUS } from '@/types/auction'
+import { formatJPY, formatTime, getHostname } from '@/lib/utils'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export interface AuctionData {
-  itemId: string
-  url: string
-  title: string
-  currentPrice: number
-  endTime: string | null
-  imageUrl: string | null
-  bidCount: number
-  partial?: boolean
-}
-
-export interface PriceRecord {
-  price: number
-  recordedAt: Date
-}
-
-export interface LastBid {
-  price: number
-  status: string
-  statusLabel?: string
-  statusColor?: string
-  recordedAt: string
-}
-
-export interface TrackedAuction {
-  id: number
-  url: string
-  contactName: string
-  firstBidPrice: number | null
-  lastBid: LastBid | null
-  submittedAt: Date
-  data: AuctionData | null
-  priceHistory: PriceRecord[]
-  error: string | null
-  loading: boolean
-  lastPolledAt: Date | null
-}
+export type { AuctionData, TrackedAuction, LastBid }
+export { BID_STATUS }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -81,8 +47,11 @@ async function loadPendingAuctions(): Promise<TrackedAuction[]> {
   }))
 }
 
-async function submitToBackend(url: string, firstBidPrice?: number): Promise<{ id: number; data: AuctionData; lastBid?: LastBid }> {
-  const res = await fetch(`/api/auction-requests`, {
+async function submitToBackend(
+  url: string,
+  firstBidPrice?: number
+): Promise<{ id: number; data: AuctionData; lastBid?: LastBid }> {
+  const res = await fetch('/api/auction-requests', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url, firstBidPrice }),
@@ -102,7 +71,9 @@ async function submitToBackend(url: string, firstBidPrice?: number): Promise<{ i
       bidCount: d.bidCount,
       partial: d.partial,
     },
-    lastBid: d.lastBid ?? (firstBidPrice ? { price: firstBidPrice, status: 'pending', recordedAt: new Date().toISOString() } : undefined),
+    lastBid: d.lastBid ?? (firstBidPrice
+      ? { price: firstBidPrice, status: BID_STATUS.pending, recordedAt: new Date().toISOString() }
+      : undefined),
   }
 }
 
@@ -117,13 +88,7 @@ async function fetchAuctionData(url: string): Promise<AuctionData> {
   return json
 }
 
-export function formatJPY(price: number) {
-  return price > 0 ? `¥${price.toLocaleString('ja-JP')}` : '—'
-}
-
-export function formatTime(date: Date) {
-  return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-}
+export { formatJPY, formatTime, getHostname }
 
 // ─── Countdown ───────────────────────────────────────────────────────────────
 
@@ -154,51 +119,95 @@ export function Countdown({ endTime }: { endTime: string }) {
   )
 }
 
+// ─── Bid Status Badge ─────────────────────────────────────────────────────────
+
+function bidStatusClass(status: string) {
+  const s = status.toLowerCase()
+  if (s === BID_STATUS.rejected) return 'bg-red-100 text-red-700'
+  if (s === BID_STATUS.pending) return 'bg-amber-100 text-amber-700'
+  return 'bg-emerald-100 text-emerald-700'
+}
+
+// ─── Bid Inline Form ──────────────────────────────────────────────────────────
+
+function BidInlineForm({
+  currentPrice,
+  onSubmit,
+  onCancel,
+}: {
+  currentPrice: number
+  onSubmit: (amount: number) => void
+  onCancel: () => void
+}) {
+  const [input, setInput] = useState('')
+  const [error, setError] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const num = Number(input.replace(/,/g, ''))
+    if (!Number.isFinite(num) || num <= 0) {
+      setError('กรุณาใส่ตัวเลขเท่านั้น')
+      return
+    }
+    if (num <= currentPrice) {
+      setError(`ต้องมากกว่าราคาปัจจุบัน (${formatJPY(currentPrice)})`)
+      return
+    }
+    onSubmit(num)
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex items-center gap-2"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm text-muted">¥</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={input}
+            onChange={(e) => { setInput(e.target.value.replace(/[^0-9]/g, '')); setError('') }}
+            placeholder={`มากกว่า ${formatJPY(currentPrice)}`}
+            className="w-28 px-2.5 py-2 rounded-lg border border-card-border bg-white text-sm font-medium text-sakura-900 focus:outline-none focus:ring-2 focus:ring-sakura-400"
+            autoFocus
+          />
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
+      <button type="submit" className="px-3 py-2 rounded-lg bg-sakura-700 text-white text-sm font-semibold hover:bg-sakura-800">
+        ส่ง
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onCancel() }}
+        className="px-3 py-2 rounded-lg border border-card-border text-sm text-muted hover:bg-sakura-50"
+      >
+        ยกเลิก
+      </button>
+    </form>
+  )
+}
+
 // ─── Auction Card ─────────────────────────────────────────────────────────────
 
 function AuctionCard({
   auction,
   onClick,
   onBidSubmit,
-}: { auction: TrackedAuction; onClick?: () => void; onBidSubmit?: (auctionId: number, amount: number) => void }) {
+}: {
+  auction: TrackedAuction
+  onClick?: () => void
+  onBidSubmit?: (auctionId: number, amount: number) => void
+}) {
   const { data, loading, error, url, priceHistory, lastPolledAt, lastBid } = auction
   const currentPrice = data?.currentPrice ?? 0
   const showBidButton = !loading && currentPrice > 0 && (lastBid?.price ?? 0) < currentPrice
-
   const [isBidding, setIsBidding] = useState(false)
-  const [bidInput, setBidInput] = useState('')
-  const [bidError, setBidError] = useState('')
-
-  const handleBidClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsBidding(true)
-    setBidInput('')
-    setBidError('')
-  }
-
-  const handleBidSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const num = Number(bidInput.replace(/,/g, ''))
-    if (!Number.isFinite(num) || num <= 0) {
-      setBidError('กรุณาใส่ตัวเลขเท่านั้น')
-      return
-    }
-    if (num <= currentPrice) {
-      setBidError(`ต้องมากกว่าราคาปัจจุบัน (${formatJPY(currentPrice)})`)
-      return
-    }
-    setBidError('')
-    onBidSubmit?.(auction.id, num)
-    setIsBidding(false)
-    setBidInput('')
-  }
-
-  const handleBidInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value.replace(/[^0-9]/g, '')
-    setBidInput(v)
-    setBidError('')
-  }
 
   return (
     <div
@@ -213,14 +222,7 @@ function AuctionCard({
         {loading ? (
           <Loader2 className="w-6 h-6 text-muted animate-spin" />
         ) : data?.imageUrl ? (
-          <Image
-            src={data.imageUrl}
-            alt={data.title}
-            width={96}
-            height={96}
-            className="w-full h-full object-cover"
-            unoptimized
-          />
+          <Image src={data.imageUrl} alt={data.title} width={96} height={96} className="w-full h-full object-cover" unoptimized />
         ) : (
           <span className="text-2xl">🛍️</span>
         )}
@@ -240,28 +242,16 @@ function AuctionCard({
           </div>
         ) : data ? (
           <>
-            <p className="text-base font-semibold text-sakura-900 line-clamp-2 leading-snug">
-              {data.title}
-            </p>
+            <p className="text-base font-semibold text-sakura-900 line-clamp-2 leading-snug">{data.title}</p>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-lg font-bold text-sakura-900">{formatJPY(data.currentPrice)}</span>
+              <span className="text-lg font-bold text-sakura-900">{formatJPY(currentPrice)}</span>
               {lastBid != null && lastBid.price > 0 && (
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
-                    ['reject', 'rejected'].includes((lastBid.status ?? '').toLowerCase())
-                      ? 'bg-red-100 text-red-700'
-                      : (lastBid.status ?? '').toLowerCase() === 'pending'
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-emerald-100 text-emerald-700'
-                  }`}
-                >
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold ${bidStatusClass(lastBid.status)}`}>
                   Your Bid {formatJPY(lastBid.price)}
                 </span>
               )}
               {data.partial && (
-                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                  ข้อมูลราคาไม่ครบ
-                </span>
+                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">ข้อมูลราคาไม่ครบ</span>
               )}
             </div>
             {priceHistory.length > 1 && (
@@ -287,7 +277,7 @@ function AuctionCard({
             className="inline-flex items-center gap-1 text-xs text-muted hover:text-sakura-700 hover:underline transition-colors"
           >
             <ExternalLink className="w-3 h-3" />
-            {(() => { try { return new URL(url).hostname.replace('www.', '') } catch { return url } })()}
+            {getHostname(url)}
           </a>
         </div>
 
@@ -299,59 +289,33 @@ function AuctionCard({
         )}
       </div>
 
-      {/* Right: countdown + Bid (ขวาบน แถวเดียวกัน) */}
+      {/* Right: countdown + Bid */}
       <div className="flex flex-row items-center gap-2 shrink-0 pt-1">
         {!loading && data?.endTime ? (
           <Countdown endTime={data.endTime} />
         ) : (
           <span className="text-xs text-muted">
-            {new Date(auction.submittedAt).toLocaleDateString('th-TH', {
-              day: '2-digit', month: '2-digit', year: 'numeric',
-            })}
+            {auction.submittedAt.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </span>
         )}
+
         {showBidButton && !isBidding && (
           <button
             type="button"
-            onClick={handleBidClick}
+            onClick={(e) => { e.stopPropagation(); setIsBidding(true) }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sakura-700 text-white text-sm font-semibold hover:bg-sakura-800 transition-colors"
           >
             <TrendingUp className="w-4 h-4" />
             Bid
           </button>
         )}
+
         {showBidButton && isBidding && (
-          <form onSubmit={handleBidSubmit} className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm text-muted">¥</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={bidInput}
-                  onChange={handleBidInputChange}
-                  placeholder={`มากกว่า ${formatJPY(currentPrice)}`}
-                  className="w-28 px-2.5 py-2 rounded-lg border border-card-border bg-white text-sm font-medium text-sakura-900 focus:outline-none focus:ring-2 focus:ring-sakura-400"
-                  autoFocus
-                />
-              </div>
-              {bidError && <p className="text-xs text-red-500">{bidError}</p>}
-            </div>
-            <button
-              type="submit"
-              className="px-3 py-2 rounded-lg bg-sakura-700 text-white text-sm font-semibold hover:bg-sakura-800"
-            >
-              ส่ง
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setIsBidding(false); setBidInput(''); setBidError('') }}
-              className="px-3 py-2 rounded-lg border border-card-border text-sm text-muted hover:bg-sakura-50"
-            >
-              ยกเลิก
-            </button>
-          </form>
+          <BidInlineForm
+            currentPrice={currentPrice}
+            onSubmit={(amount) => { onBidSubmit?.(auction.id, amount); setIsBidding(false) }}
+            onCancel={() => setIsBidding(false)}
+          />
         )}
       </div>
     </div>
@@ -364,7 +328,6 @@ const POLL_INTERVAL_MS = 3 * 60 * 1000 // 3 minutes
 
 export default function SearchLinkTab() {
   const [url, setUrl] = useState('')
-  const [contactName, setContactName] = useState('')
   const [firstBidPrice, setFirstBidPrice] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState(false)
@@ -382,41 +345,61 @@ export default function SearchLinkTab() {
       .finally(() => setInitialLoading(false))
   }, [])
 
-  // Poll all tracked auctions on interval
+  // Poll all tracked auctions in parallel on interval — runs once, uses ref for latest list
   useEffect(() => {
-    if (auctions.length === 0) return
-
     const poll = async () => {
-      const current = auctionsRef.current
-      for (const auction of current) {
-        if (auction.loading) continue
-        try {
-          const data = await fetchAuctionData(auction.url)
-          const now = new Date()
-          setAuctions(prev =>
-            prev.map(a => {
-              if (a.id !== auction.id) return a
-              const priceChanged = a.data !== null && data.currentPrice !== a.data.currentPrice
-              return {
-                ...a,
-                data,
-                error: null,
-                lastPolledAt: now,
-                priceHistory: priceChanged
-                  ? [...a.priceHistory, { price: data.currentPrice, recordedAt: now }]
-                  : a.priceHistory,
-              }
-            })
-          )
-        } catch {
-          // fail silently on background poll
-        }
-      }
+      const current = auctionsRef.current.filter(a => !a.loading)
+      if (current.length === 0) return
+
+      const results = await Promise.allSettled(
+        current.map(a => fetchAuctionData(a.url).then(data => ({ id: a.id, data })))
+      )
+      const now = new Date()
+      results.forEach(r => {
+        if (r.status !== 'fulfilled') return
+        const { id, data } = r.value
+        setAuctions(prev =>
+          prev.map(a => {
+            if (a.id !== id) return a
+            const priceChanged = a.data !== null && data.currentPrice !== a.data.currentPrice
+            return {
+              ...a,
+              data,
+              error: null,
+              lastPolledAt: now,
+              priceHistory: priceChanged
+                ? [...a.priceHistory, { price: data.currentPrice, recordedAt: now }]
+                : a.priceHistory,
+            }
+          })
+        )
+      })
     }
 
     const id = setInterval(poll, POLL_INTERVAL_MS)
     return () => clearInterval(id)
-  }, [auctions.length])
+  }, [])
+
+  const handleBidSubmit = useCallback(async (auctionId: number, amount: number) => {
+    try {
+      const res = await fetch(`/api/auction-requests/${auctionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bidAmount: amount }),
+      })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        setAuctions(prev => prev.map(a => a.id === auctionId
+          ? { ...a, lastBid: { price: amount, status: BID_STATUS.pending, recordedAt: new Date().toISOString() } }
+          : a
+        ))
+      } else {
+        console.error(json.error?.message ?? 'ส่ง Bid ไม่สำเร็จ')
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -427,9 +410,11 @@ export default function SearchLinkTab() {
     const newAuction: TrackedAuction = {
       id: newId,
       url,
-      contactName: contactName || 'ไม่ระบุ',
+      contactName: 'ไม่ระบุ',
       firstBidPrice: bidPrice,
-      lastBid: bidPrice ? { price: bidPrice, status: 'pending', recordedAt: new Date().toISOString() } : null,
+      lastBid: bidPrice
+        ? { price: bidPrice, status: BID_STATUS.pending, recordedAt: new Date().toISOString() }
+        : null,
       submittedAt: new Date(),
       data: null,
       priceHistory: [],
@@ -440,13 +425,11 @@ export default function SearchLinkTab() {
 
     setAuctions(prev => [newAuction, ...prev])
     setUrl('')
-    setContactName('')
     setFirstBidPrice('')
     setIsSubmitting(false)
     setSuccessMsg(true)
     setTimeout(() => setSuccessMsg(false), 3000)
 
-    // Submit to backend — saves to DB and scrapes Yahoo
     try {
       const result = await submitToBackend(newAuction.url, bidPrice ?? undefined)
       const now = new Date()
@@ -469,11 +452,7 @@ export default function SearchLinkTab() {
       setAuctions(prev =>
         prev.map(a =>
           a.id === newId
-            ? {
-                ...a,
-                loading: false,
-                error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด',
-              }
+            ? { ...a, loading: false, error: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด' }
             : a
         )
       )
@@ -563,9 +542,7 @@ export default function SearchLinkTab() {
           </form>
 
           {auctions.length > 0 && (
-            <p className="text-xs text-muted text-center">
-              ราคาจะอัปเดตอัตโนมัติทุก 3 นาที
-            </p>
+            <p className="text-xs text-muted text-center">ราคาจะอัปเดตอัตโนมัติทุก 3 นาที</p>
           )}
         </div>
 
@@ -593,23 +570,7 @@ export default function SearchLinkTab() {
                   key={auction.id}
                   auction={auction}
                   onClick={() => !auction.loading && setSelectedAuction(auction)}
-                  onBidSubmit={async (id, amount) => {
-                    try {
-                      const res = await fetch(`/api/auction-requests/${id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bidAmount: amount }),
-                      })
-                      const json = await res.json()
-                      if (res.ok && json.success) {
-                        loadPendingAuctions().then(setAuctions)
-                      } else {
-                        console.error(json.error?.message ?? 'ส่ง Bid ไม่สำเร็จ')
-                      }
-                    } catch (err) {
-                      console.error(err)
-                    }
-                  }}
+                  onBidSubmit={handleBidSubmit}
                 />
               ))
             )}
