@@ -21,7 +21,7 @@ export default function Header({ onSearch }: HeaderProps) {
   const handleLogout = async () => {
     setShowDropdown(false)
     await logout()
-    router.push('/')
+    router.push('/login')
   }
 
   return (
