@@ -7,13 +7,7 @@ export const registerSchema = z.object({
     .toLowerCase()
     .max(255, 'Email too long'),
 
-  password: z
-    .string({ required_error: 'Password is required' })
-    .min(8, 'Password must be at least 8 characters')
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/,
-      'Password must contain uppercase, lowercase, number, and special character'
-    ),
+  password: z.string({ required_error: 'Password is required' }).min(1, 'Password is required'),
 
   name: z
     .string({ required_error: 'Name is required' })
@@ -21,10 +15,14 @@ export const registerSchema = z.object({
     .max(100, 'Name too long')
     .regex(/^[a-zA-Zก-๙\s]+$/, 'Name can only contain letters'),
 
-  phone: z
-    .string()
-    .regex(/^0[0-9]{1}-[0-9]{4}-[0-9]{4}$/, 'Phone must be in format: 0X-XXXX-XXXX')
-    .optional(),
+  username: z
+    .string({ required_error: 'Username is required' })
+    .min(1, 'Username is required')
+    .max(50, 'Username too long'),
+
+  userId: z.string().optional(),
+
+  phone: z.string().optional(),
 })
 
 export type RegisterInput = z.infer<typeof registerSchema>

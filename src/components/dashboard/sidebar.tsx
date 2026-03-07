@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const MENU_ITEMS = [
-  { href: '/dashboard/bids', label: 'Active Bids', icon: Gavel },
+  { href: '/dashboard/bids', label: 'My Bids', icon: Gavel },
   { href: '/dashboard/shipments', label: 'Shipments', icon: Truck },
   { href: '/dashboard/orders', label: 'Order History', icon: ClipboardList },
   { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },

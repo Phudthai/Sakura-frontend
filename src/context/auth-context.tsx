@@ -36,6 +36,8 @@ interface RegisterData {
   email: string
   password: string
   name: string
+  username: string
+  userId?: string
   phone?: string
 }
 

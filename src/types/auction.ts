@@ -30,12 +30,15 @@ export interface LastBid {
   recordedAt: string
 }
 
+export type BidResult = 'lost' | 'won'
+
 export interface TrackedAuction {
   id: number
   url: string
   contactName: string
   firstBidPrice: number | null
   lastBid: LastBid | null
+  bidResult?: BidResult | null
   submittedAt: Date
   data: AuctionData | null
   priceHistory: PriceRecord[]

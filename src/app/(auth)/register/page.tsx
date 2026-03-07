@@ -3,14 +3,46 @@
 import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, User, Phone, UserPlus, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, UserPlus, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/auth-context'
+
+/** Input wrapper with label, optional error, and optional helper text - ต้องอยู่นอก component หลักเพื่อไม่ให้ re-create ทุกครั้งที่พิมพ์ */
+function Field({
+  id,
+  label,
+  fieldError,
+  helperText,
+  children,
+}: {
+  id: string
+  label: string
+  fieldError?: string
+  helperText?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="mb-1.5">
+        <label htmlFor={id} className="text-sm font-medium text-sakura-900">
+          {label}
+        </label>
+        {helperText && !fieldError && (
+          <span className="text-xs text-red-500 ml-1.5">{helperText}</span>
+        )}
+      </div>
+      <div className="relative">{children}</div>
+      {fieldError && <p className="text-xs text-red-500 mt-1">{fieldError}</p>}
+    </div>
+  )
+}
 
 export default function RegisterPage() {
   const router = useRouter()
   const { register } = useAuth()
 
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
+  const [userId, setUserId] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -25,15 +57,10 @@ export default function RegisterPage() {
     const errors: Record<string, string> = {}
 
     if (name.trim().length < 2) errors.name = 'Name must be at least 2 characters'
+    if (!username.trim()) errors.username = 'Username is required'
     if (!email.includes('@')) errors.email = 'Invalid email'
-    if (password.length < 8) errors.password = 'Password must be at least 8 characters'
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(password)) {
-      errors.password = 'Must include uppercase, lowercase, number, and special character'
-    }
+    if (!password.trim()) errors.password = 'Password is required'
     if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match'
-    if (phone && !/^0[0-9]{1}-[0-9]{4}-[0-9]{4}$/.test(phone)) {
-      errors.phone = 'Format: 0X-XXXX-XXXX'
-    }
 
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -48,6 +75,8 @@ export default function RegisterPage() {
     setIsSubmitting(true)
     const result = await register({
       name: name.trim(),
+      username: username.trim(),
+      userId: userId.trim() || undefined,
       email,
       password,
       phone: phone || undefined,
@@ -61,59 +90,33 @@ export default function RegisterPage() {
     }
   }
 
-  /** Input wrapper with label and optional error */
-  const Field = ({
-    id,
-    label,
-    icon: Icon,
-    children,
-  }: {
-    id: string
-    label: string
-    icon: React.ElementType
-    children: React.ReactNode
-  }) => (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-sakura-900 mb-1.5">
-        {label}
-      </label>
-      <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted" />
-        {children}
-      </div>
-      {fieldErrors[id] && (
-        <p className="text-xs text-red-500 mt-1">{fieldErrors[id]}</p>
-      )}
-    </div>
-  )
-
   const inputBase =
-    'w-full pl-10 pr-4 py-3 rounded-xl border border-card-border bg-sakura-50/50 text-sakura-900 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-sakura-400 focus:border-transparent transition-all'
+    'w-full px-4 py-3 rounded-xl border border-card-border bg-sakura-50/50 text-sakura-900 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-sakura-400 focus:border-transparent transition-all'
 
   return (
-    <div className="w-full max-w-md animate-fade-slide-in">
+    <div className="w-full max-w-2xl animate-fade-slide-in">
       {/* Card */}
-      <div className="bg-white rounded-2xl shadow-card p-8 border border-card-border">
-        {/* Heading */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-header rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-button">
-            <UserPlus className="w-8 h-8 text-white" />
+      <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-card-border">
+        {/* Heading - compact */}
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 bg-gradient-header rounded-xl flex items-center justify-center mx-auto mb-3 shadow-button">
+            <UserPlus className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-sakura-900">Create account</h1>
-          <p className="text-muted-dark text-sm mt-1">Join Sakura to start ordering from Japan</p>
+          <h1 className="text-xl font-bold text-sakura-900">Create account</h1>
+          <p className="text-muted-dark text-sm mt-0.5">Join Sakura to start ordering from Japan</p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm text-center">
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm text-center">
             {error}
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <Field id="name" label="Full name" icon={User}>
+        {/* Form - 2 columns on desktop */}
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          {/* Row 1 */}
+          <Field id="name" label="Full name" fieldError={fieldErrors.name}>
             <input
               id="name"
               type="text"
@@ -124,9 +127,39 @@ export default function RegisterPage() {
               className={inputBase}
             />
           </Field>
+          <Field
+            id="username"
+            label="Username"
+            fieldError={fieldErrors.username}
+            helperText="ลูกค้าเก่าใส่ชื่อบัญชี ที่ทางร้านกำหนดให้"
+          >
+            <input
+              id="username"
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Your username"
+              className={inputBase}
+            />
+          </Field>
 
-          {/* Email */}
-          <Field id="email" label="Email" icon={Mail}>
+          {/* Row 2 */}
+          <Field
+            id="userId"
+            label="User Id (optional)"
+            helperText="ลูกค้าเก่าใส่ id ที่ทางร้านกำหนดให้"
+          >
+            <input
+              id="userId"
+              type="text"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              placeholder="Your user ID"
+              className={inputBase}
+            />
+          </Field>
+          <Field id="email" label="Email" fieldError={fieldErrors.email}>
             <input
               id="email"
               type="email"
@@ -138,15 +171,15 @@ export default function RegisterPage() {
             />
           </Field>
 
-          {/* Password */}
-          <Field id="password" label="Password" icon={Lock}>
+          {/* Row 3 - Password fields */}
+          <Field id="password" label="Password" fieldError={fieldErrors.password}>
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 8 characters"
+              placeholder="Enter your password"
               className={`${inputBase} pr-12`}
             />
             <button
@@ -157,9 +190,7 @@ export default function RegisterPage() {
               {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
             </button>
           </Field>
-
-          {/* Confirm password */}
-          <Field id="confirmPassword" label="Confirm password" icon={Lock}>
+          <Field id="confirmPassword" label="Confirm password" fieldError={fieldErrors.confirmPassword}>
             <input
               id="confirmPassword"
               type={showPassword ? 'text' : 'password'}
@@ -171,53 +202,47 @@ export default function RegisterPage() {
             />
           </Field>
 
-          {/* Phone (optional) */}
-          <Field id="phone" label="Phone (optional)" icon={Phone}>
-            <input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="0X-XXXX-XXXX"
-              className={inputBase}
-            />
-          </Field>
-
-          {/* Password requirements hint */}
-          <div className="text-xs text-muted space-y-0.5 bg-sakura-50/60 rounded-lg p-3">
-            <p className="font-medium text-sakura-800 mb-1">Password requirements:</p>
-            <p className={password.length >= 8 ? 'text-green-600' : ''}>• At least 8 characters</p>
-            <p className={/[A-Z]/.test(password) ? 'text-green-600' : ''}>• One uppercase letter</p>
-            <p className={/[a-z]/.test(password) ? 'text-green-600' : ''}>• One lowercase letter</p>
-            <p className={/\d/.test(password) ? 'text-green-600' : ''}>• One number</p>
-            <p className={/[@$!%*?&]/.test(password) ? 'text-green-600' : ''}>• One special character (@$!%*?&amp;)</p>
+          {/* Row 4 - Phone full width */}
+          <div className="md:col-span-2">
+            <Field id="phone" label="Phone (optional)" fieldError={fieldErrors.phone}>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0X-XXXX-XXXX"
+                className={inputBase}
+              />
+            </Field>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="btn-gradient w-full flex items-center justify-center gap-2 py-3 text-base mt-2"
-          >
-            {isSubmitting ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <UserPlus className="w-5 h-5" />
-                Create account
-              </>
-            )}
-          </button>
+          {/* Submit - full width */}
+          <div className="md:col-span-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-gradient w-full flex items-center justify-center gap-2 py-3 text-base mt-1"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <UserPlus className="w-5 h-5" />
+                  Create account
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Sign in link */}
+          <p className="text-center pt-2 text-sm text-muted-dark md:col-span-2">
+            Already have an account?{' '}
+            <Link href="/login" className="text-sakura-600 font-semibold hover:underline">
+              Sign in
+            </Link>
+          </p>
         </form>
       </div>
-
-      {/* Login link */}
-      <p className="text-center text-sm text-muted-dark mt-6">
-        Already have an account?{' '}
-        <Link href="/login" className="text-sakura-600 font-semibold hover:underline">
-          Sign in
-        </Link>
-      </p>
     </div>
   )
 }

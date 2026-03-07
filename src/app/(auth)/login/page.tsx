@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, LogIn, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/auth-context'
 
 export default function LoginPage() {
@@ -58,22 +58,19 @@ export default function LoginPage() {
             <label htmlFor="email" className="block text-sm font-medium text-sakura-900 mb-1.5">
               Email
             </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted" />
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-card-border
-                           bg-sakura-50/50 text-sakura-900 text-sm
-                           placeholder:text-muted
-                           focus:outline-none focus:ring-2 focus:ring-sakura-400 focus:border-transparent
-                           transition-all"
-              />
-            </div>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full px-4 py-3 rounded-xl border border-card-border
+                         bg-sakura-50/50 text-sakura-900 text-sm
+                         placeholder:text-muted
+                         focus:outline-none focus:ring-2 focus:ring-sakura-400 focus:border-transparent
+                         transition-all"
+            />
           </div>
 
           {/* Password */}
@@ -82,7 +79,6 @@ export default function LoginPage() {
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted" />
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
@@ -90,7 +86,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                className="w-full pl-10 pr-12 py-3 rounded-xl border border-card-border
+                className="w-full pl-4 pr-12 py-3 rounded-xl border border-card-border
                            bg-sakura-50/50 text-sakura-900 text-sm
                            placeholder:text-muted
                            focus:outline-none focus:ring-2 focus:ring-sakura-400 focus:border-transparent
@@ -128,18 +124,21 @@ export default function LoginPage() {
               </>
             )}
           </button>
+
+          {/* Create account link */}
+          <p className="text-center pt-2 text-sm text-muted-dark">
+            Don&apos;t have an account?{' '}
+            <Link href="/register" className="text-sakura-600 font-semibold hover:underline">
+              Create account
+            </Link>
+          </p>
         </form>
+      </div>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 h-px bg-card-border" />
-          <span className="text-xs text-muted">or</span>
-          <div className="flex-1 h-px bg-card-border" />
-        </div>
-
-        {/* Demo accounts */}
+      {/* Demo accounts - แยกจากการ์ดหลัก */}
+      <div className="mt-6 p-4 rounded-2xl border border-amber-200 bg-amber-50/80">
+        <p className="text-xs font-medium text-amber-800 text-center mb-3">Quick login with test accounts</p>
         <div className="space-y-2">
-          <p className="text-xs text-muted-dark text-center mb-2">Quick login with test accounts</p>
           {[
             { label: 'Admin', email: 'admin@sakura.com' },
             { label: 'Customer', email: 'customer1@example.com' },
@@ -152,25 +151,17 @@ export default function LoginPage() {
                 setPassword('password123')
                 setError('')
               }}
-              className="w-full px-4 py-2.5 rounded-xl border border-card-border
+              className="w-full px-4 py-2.5 rounded-xl border border-amber-200
                          text-sm text-sakura-800 bg-white
-                         hover:bg-sakura-50 hover:border-sakura-400 transition-all
+                         hover:bg-amber-100 hover:border-amber-400 transition-all
                          flex items-center justify-between"
             >
               <span className="font-medium">{demo.label}</span>
-              <span className="text-xs text-muted">{demo.email}</span>
+              <span className="text-xs text-muted font-mono">{demo.email}</span>
             </button>
           ))}
         </div>
       </div>
-
-      {/* Register link */}
-      <p className="text-center text-sm text-muted-dark mt-6">
-        Don&apos;t have an account?{' '}
-        <Link href="/register" className="text-sakura-600 font-semibold hover:underline">
-          Create account
-        </Link>
-      </p>
     </div>
   )
 }

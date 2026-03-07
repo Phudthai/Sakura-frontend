@@ -98,7 +98,7 @@ export default function Header({ onSearch }: HeaderProps) {
                                  hover:bg-sakura-50 transition-colors"
                     >
                       <Gavel className="w-4 h-4" />
-                      Active Bids
+                      My Bids
                     </Link>
                     <Link
                       href="/dashboard/shipments"
