@@ -11,6 +11,11 @@ export function formatJPY(price: number): string {
   return price > 0 ? `¥${price.toLocaleString('ja-JP')}` : '—'
 }
 
+/** Format price as ฿1,234 or — if zero */
+export function formatTHB(amount: number): string {
+  return amount !== 0 ? `฿${amount.toLocaleString('th-TH')}` : '—'
+}
+
 /** Format a Date to HH:MM in Thai locale */
 export function formatTime(date: Date): string {
   return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })

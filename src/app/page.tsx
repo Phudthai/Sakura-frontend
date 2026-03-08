@@ -8,6 +8,7 @@ import FilterSidebar from '@/components/ui/filter-sidebar'
 import ProductGrid from '@/components/product/product-grid'
 import Pagination from '@/components/ui/pagination'
 import SearchLinkTab from '@/components/search-link/search-link-tab'
+import CheckStatusTab from '@/components/check-status/check-status-tab'
 import { MOCK_PRODUCTS, FILTER_GROUPS } from '@/lib/constants'
 
 const ITEMS_PER_PAGE = 20
@@ -15,6 +16,7 @@ const ITEMS_PER_PAGE = 20
 const TABS = [
   { id: 'product_list', label: 'สินค้า' },
   { id: 'search_link', label: 'ประมูลด้วยตนเอง' },
+  { id: 'check_status', label: 'เช็คสถานะสินค้า' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -144,6 +146,9 @@ function HomeContent() {
 
       {/* Tab: search_link */}
       {tab === 'search_link' && <SearchLinkTab />}
+
+      {/* Tab: check_status */}
+      {tab === 'check_status' && <CheckStatusTab />}
     </div>
   )
 }
