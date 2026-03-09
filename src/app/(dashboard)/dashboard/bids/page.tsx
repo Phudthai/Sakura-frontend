@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Gavel, Loader2, ExternalLink, Timer } from 'lucide-react'
 import { cn, formatJPY, formatTime, getHostname } from '@/lib/utils'
+import { API_ENDUSER_PREFIX } from '@/lib/api-config'
 import type { TrackedAuction } from '@/types/auction'
 import { BID_STATUS } from '@/types/auction'
 
@@ -13,7 +14,7 @@ const TABS = [
 ]
 
 async function loadAuctions(status: 'pending' | 'completed'): Promise<TrackedAuction[]> {
-  const res = await fetch(`/api/auction-requests?status=${status}&limit=50`)
+  const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests?status=${status}&limit=50`)
   const json = await res.json()
   if (!res.ok || !json.success) return []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

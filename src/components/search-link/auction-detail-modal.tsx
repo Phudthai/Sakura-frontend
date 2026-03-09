@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import type { TrackedAuction } from '@/types/auction'
 import { formatJPY, getHostname } from '@/lib/utils'
+import { API_ENDUSER_PREFIX } from '@/lib/api-config'
 import { Countdown } from './search-link-tab'
 
 interface PriceLog {
@@ -22,7 +23,7 @@ interface PriceLog {
 
 async function fetchPriceLogs(auctionId: number): Promise<PriceLog[]> {
   try {
-    const res = await fetch(`/api/auction-requests/${auctionId}/price-logs`)
+    const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests/${auctionId}/price-logs`)
     const json = await res.json()
     if (!res.ok) return []
     const logs = json.data?.logs ?? json.data ?? []

@@ -31,7 +31,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setProfileSaving(true)
-    // Mock save — in production, call PUT /api/auth/me
+    // Mock save — in production, call PUT /api/enduser/auth/me
     await new Promise((r) => setTimeout(r, 800))
     setProfileSaving(false)
     setProfileSuccess(true)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthCookie, verifyToken } from '@/lib/auth'
+import { API_ENDUSER_PREFIX } from '@/lib/api-config'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
@@ -14,7 +15,7 @@ export async function GET() {
 
   // Try backend first — has full user profile (name, phone, etc.)
   try {
-    const res = await fetch(`${API_URL}/api/auth/me`, {
+    const res = await fetch(`${API_URL}${API_ENDUSER_PREFIX}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     const text = await res.text()
@@ -48,4 +49,3 @@ export async function GET() {
     },
   })
 }
-

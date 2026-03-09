@@ -29,6 +29,7 @@ import BidModal from "./bid-modal";
 import type { AuctionData, TrackedAuction, LastBid } from "@/types/auction";
 import { BID_STATUS } from "@/types/auction";
 import { formatJPY, formatTime, getHostname } from "@/lib/utils";
+import { API_ENDUSER_PREFIX } from "@/lib/api-config";
 
 export type { AuctionData, TrackedAuction, LastBid };
 export { BID_STATUS };
@@ -36,7 +37,7 @@ export { BID_STATUS };
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function loadPendingAuctions(): Promise<TrackedAuction[]> {
-  const res = await fetch("/api/auction-requests?status=pending&limit=50");
+  const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests?status=pending&limit=50`);
   const json = await res.json();
   if (!res.ok || !json.success)
     throw new Error(json.error?.message ?? "โหลดข้อมูลไม่สำเร็จ");
@@ -76,7 +77,7 @@ async function submitToBackend(
   url: string,
   firstBidPrice?: number,
 ): Promise<{ id: number; data: AuctionData; lastBid?: LastBid }> {
-  const res = await fetch("/api/auction-requests", {
+  const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url, firstBidPrice }),
@@ -110,7 +111,7 @@ async function submitToBackend(
 }
 
 async function fetchAuctionData(url: string): Promise<AuctionData> {
-  const res = await fetch("/api/auction/fetch", {
+  const res = await fetch(`${API_ENDUSER_PREFIX}/auction/fetch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
@@ -474,7 +475,7 @@ export default function SearchLinkTab() {
   const handleMock = useCallback(
     async (auctionId: number, action: "outbid" | "end-time") => {
       try {
-        await fetch(`/api/auction-requests/${auctionId}/mock`, {
+        await fetch(`${API_ENDUSER_PREFIX}/auction-requests/${auctionId}/mock`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
@@ -489,7 +490,7 @@ export default function SearchLinkTab() {
   const handleBidSubmit = useCallback(
     async (auctionId: number, amount: number) => {
       try {
-        const res = await fetch(`/api/auction-requests/${auctionId}/bids`, {
+        const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests/${auctionId}/bids`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ price: amount }),
