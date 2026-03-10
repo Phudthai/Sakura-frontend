@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, UserPlus, Loader2 } from 'lucide-react'
@@ -37,7 +37,7 @@ function Field({
   )
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { register } = useAuth()
@@ -261,3 +261,10 @@ export default function RegisterPage() {
   )
 }
 
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-2xl h-96 animate-pulse rounded-2xl bg-sakura-100" />}>
+      <RegisterContent />
+    </Suspense>
+  )
+}
