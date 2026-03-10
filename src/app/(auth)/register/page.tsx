@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, type FormEvent } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, UserPlus, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/auth-context'
+import { setUserCodeCookie, getUserCodeCookie, clearUserCodeCookie } from '@/lib/user-code-cookie'
 
 /** Input wrapper with label, optional error, and optional helper text - ต้องอยู่นอก component หลักเพื่อไม่ให้ re-create ทุกครั้งที่พิมพ์ */
 function Field({
@@ -38,6 +39,7 @@ function Field({
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { register } = useAuth()
 
   const [name, setName] = useState('')
@@ -51,6 +53,14 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  /** Persist user_code from query to cookie when coming from staff link */
+  useEffect(() => {
+    const userCodeFromQuery = searchParams.get('user_code')
+    if (userCodeFromQuery?.trim()) {
+      setUserCodeCookie(userCodeFromQuery)
+    }
+  }, [searchParams])
 
   /** Client-side validation before sending to API */
   const validate = (): boolean => {
@@ -72,6 +82,8 @@ export default function RegisterPage() {
 
     if (!validate()) return
 
+    const userCode = searchParams.get('user_code')?.trim() || getUserCodeCookie() || undefined
+
     setIsSubmitting(true)
     const result = await register({
       name: name.trim(),
@@ -80,10 +92,12 @@ export default function RegisterPage() {
       email,
       password,
       phone: phone || undefined,
+      user_code: userCode,
     })
     setIsSubmitting(false)
 
     if (result.success) {
+      clearUserCodeCookie()
       router.push('/')
     } else {
       setError(result.error || 'Registration failed')

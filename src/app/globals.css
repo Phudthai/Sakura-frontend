@@ -52,6 +52,7 @@
     background-size: 200% 100%;
     @apply animate-shimmer;
   }
+
 }
 
 /* ===========================

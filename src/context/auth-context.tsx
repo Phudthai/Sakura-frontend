@@ -40,6 +40,7 @@ interface RegisterData {
   username: string
   userId?: string
   phone?: string
+  user_code?: string
 }
 
 // ---------------------------------------------------------------------------

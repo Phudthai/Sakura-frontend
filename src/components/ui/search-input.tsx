@@ -39,16 +39,15 @@ export default function SearchInput({
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full py-2.5 pl-10 pr-4 border-none rounded-full text-sm
-                     outline-none bg-white/90 text-sakura-900
-                     placeholder:text-muted focus:ring-2 focus:ring-white/50"
+          className="w-full py-2.5 pl-10 pr-4 border border-sakura-200 rounded-full text-sm
+                     outline-none bg-sakura-50 text-sakura-900
+                     placeholder:text-muted focus:ring-2 focus:ring-sakura-300 focus:border-sakura-300"
         />
       </div>
       <button
         onClick={handleSubmit}
-        className="px-5 py-2.5 bg-white text-sakura-600 border-none rounded-full
-                   font-semibold cursor-pointer text-sm transition-opacity
-                   hover:opacity-85"
+        className="px-5 py-2.5 btn-gradient rounded-full
+                   font-semibold cursor-pointer text-sm transition-opacity"
       >
         Search
       </button>
