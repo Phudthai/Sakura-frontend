@@ -80,6 +80,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
+                timeZone: 'Asia/Bangkok',
               })}
             </p>
           </div>

@@ -4,18 +4,28 @@ import { motion } from 'framer-motion'
 import { useMemo } from 'react'
 
 const STAR_COUNT = 40
+const SEED = 12345
+
+/** Seeded random — ให้ server และ client ได้ค่าเดียวกัน (แก้ hydration mismatch) */
+function seededRandom(seed: number) {
+  return () => {
+    const x = Math.sin(seed++) * 10000
+    return x - Math.floor(x)
+  }
+}
 
 function generateStars() {
+  const r = seededRandom(SEED)
   const stars = []
   for (let i = 0; i < STAR_COUNT; i++) {
     stars.push({
       id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: 1 + Math.random() * 2,
-      opacityBase: 0.4 + Math.random() * 0.6,
-      duration: 2 + Math.random() * 3,
-      delay: Math.random() * 2,
+      x: r() * 100,
+      y: r() * 100,
+      size: 1 + r() * 2,
+      opacityBase: 0.4 + r() * 0.6,
+      duration: 2 + r() * 3,
+      delay: r() * 2,
     })
   }
   return stars

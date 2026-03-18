@@ -109,7 +109,11 @@ function AuctionBidCard({ auction, tab }: { auction: TrackedAuction; tab: 'pendi
             <span className="inline-flex items-center gap-1">
               <Timer className="w-3 h-3" />
               {new Date(data.endTime) > new Date()
-                ? `สิ้นสุด ${new Date(data.endTime).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' })}`
+                ? `สิ้นสุด ${new Date(data.endTime).toLocaleDateString('th-TH', {
+                day: '2-digit',
+                month: '2-digit',
+                timeZone: 'Asia/Bangkok',
+              })}`
                 : 'สิ้นสุดแล้ว'
               }
             </span>

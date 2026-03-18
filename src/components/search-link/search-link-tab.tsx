@@ -76,11 +76,15 @@ async function loadPendingAuctions(): Promise<TrackedAuction[]> {
 async function submitToBackend(
   url: string,
   firstBidPrice?: number,
+  intlShippingType?: string,
 ): Promise<{ id: number; data: AuctionData; lastBid?: LastBid }> {
+  const body: Record<string, unknown> = { url, firstBidPrice };
+  if (intlShippingType) body.intl_shipping_type = intlShippingType;
+
   const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url, firstBidPrice }),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
   if (!res.ok || !json.success)
@@ -328,6 +332,7 @@ function AuctionCard({
                 day: "2-digit",
                 month: "2-digit",
                 year: "numeric",
+                timeZone: "Asia/Bangkok",
               })}
             </span>
           )}
@@ -409,6 +414,7 @@ const POLL_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
 export default function SearchLinkTab() {
   const [url, setUrl] = useState("");
   const [firstBidPrice, setFirstBidPrice] = useState("");
+  const [intlShippingType, setIntlShippingType] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
   const [auctions, setAuctions] = useState<TrackedAuction[]>([]);
@@ -550,6 +556,7 @@ export default function SearchLinkTab() {
     setAuctions((prev) => [newAuction, ...prev]);
     setUrl("");
     setFirstBidPrice("");
+    setIntlShippingType("");
     setIsSubmitting(false);
     setSuccessMsg(true);
     setTimeout(() => setSuccessMsg(false), 3000);
@@ -558,6 +565,7 @@ export default function SearchLinkTab() {
       const result = await submitToBackend(
         newAuction.url,
         bidPrice ?? undefined,
+        intlShippingType || undefined,
       );
       const now = new Date();
       setAuctions((prev) =>
@@ -637,6 +645,24 @@ export default function SearchLinkTab() {
                 <p className="mt-1.5 text-xs text-muted">
                   รองรับ Yahoo Auctions Japan
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-sakura-900 mb-1.5">
+                  ประเภทการจัดส่ง
+                </label>
+                <select
+                  value={intlShippingType}
+                  onChange={(e) => setIntlShippingType(e.target.value)}
+                  className="w-full pl-4 pr-10 py-3 rounded-xl border border-card-border
+                             bg-sakura-50/50 text-sakura-900 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-sakura-400 focus:border-transparent
+                             transition-all"
+                >
+                  <option value="">ไม่ระบุ</option>
+                  <option value="air">Air (ทางอากาศ)</option>
+                  <option value="sea">Sea (ทางเรือ)</option>
+                </select>
               </div>
 
               <div>

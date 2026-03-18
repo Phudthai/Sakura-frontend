@@ -16,9 +16,26 @@ export function formatTHB(amount: number): string {
   return amount !== 0 ? `฿${amount.toLocaleString('th-TH')}` : '—'
 }
 
-/** Format a Date to HH:MM in Thai locale */
+export const TIMEZONE_BANGKOK = 'Asia/Bangkok'
+
+/** Format a Date to HH:MM in Thai locale (Asia/Bangkok) */
 export function formatTime(date: Date): string {
-  return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('th-TH', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: TIMEZONE_BANGKOK,
+  })
+}
+
+/** Format ISO date string in Bangkok timezone */
+export function formatDateBangkok(
+  iso: string,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  return new Date(iso).toLocaleDateString('th-TH', {
+    timeZone: TIMEZONE_BANGKOK,
+    ...options,
+  })
 }
 
 /** Extract bare hostname from a URL, e.g. "auctions.yahoo.co.jp" */

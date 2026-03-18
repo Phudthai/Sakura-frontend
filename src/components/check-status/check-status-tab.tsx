@@ -1,9 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Ship, Plane, Check, ChevronDown, Calendar } from "lucide-react";
+import {
+  Ship,
+  Plane,
+  Check,
+  ChevronDown,
+  Calendar,
+  Upload,
+  X,
+  Loader2,
+} from "lucide-react";
 import { formatJPY } from "@/lib/utils";
+import { API_ENDUSER_PREFIX } from "@/lib/api-config";
+
+const MAX_SLIP_SIZE_MB = 5;
+const ACCEPT_IMAGES = "image/jpeg,image/png,image/gif,image/webp";
 
 // Custom dropdown แทน native select - ควบคุม styling ได้ ไม่มีช่องว่าง
 function MonthSelect({
@@ -76,7 +89,113 @@ function CheckboxTick({ size = "md" }: { size?: "sm" | "md" }) {
   );
 }
 
-// Mock product item - ตรงกับ reference design
+// Slip status from API
+type SlipStatus = {
+  status: "PENDING_VERIFICATION" | "CONFIRMED" | "REJECTED";
+  slipImageUrl?: string;
+  rejectionReason?: string | null;
+};
+
+function UploadSlipModal({
+  open,
+  onClose,
+  onSubmit,
+  loading,
+  error,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (file: File) => void;
+  loading: boolean;
+  error: string | null;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > MAX_SLIP_SIZE_MB * 1024 * 1024) {
+      setFile(null);
+      return;
+    }
+    setFile(f);
+  };
+
+  const handleSubmit = () => {
+    if (file) onSubmit(file);
+  };
+
+  const handleClose = () => {
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = "";
+    onClose();
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-sakura-900">
+            อัพโหลดสลิปโอนเงิน
+          </h3>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="p-1 rounded-lg hover:bg-sakura-100 text-muted-dark"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="text-sm text-muted-dark mb-4">
+          เลือกรูปสลิปโอนเงิน (jpg, png, gif, webp สูงสุด 5MB)
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT_IMAGES}
+          capture="environment"
+          onChange={handleFileChange}
+          className="block w-full text-sm text-sakura-700 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-sakura-100 file:text-sakura-800 file:font-semibold file:cursor-pointer hover:file:bg-sakura-200"
+        />
+        {file && (
+          <p className="mt-2 text-xs text-muted-dark truncate">{file.name}</p>
+        )}
+        {error && (
+          <p className="mt-2 text-sm text-red-600">{error}</p>
+        )}
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-sakura-200 text-sakura-800 font-semibold hover:bg-sakura-50"
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!file || loading}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-sakura-700 text-white font-semibold hover:bg-sakura-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                กำลังส่ง...
+              </>
+            ) : (
+              "ส่งสลิป"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Product item - จาก API หรือ mock
 type CheckStatusProduct = {
   id: string;
   name: string;
@@ -88,6 +207,14 @@ type CheckStatusProduct = {
   paid: number;
   shipRound: string | null;
   arrivedAtJapan: boolean;
+};
+
+type CheckStatusData = {
+  month: string;
+  transportType: string;
+  user?: { username: string; customerId: string };
+  summary: { totalBaht: number; paid: number; outstanding: number };
+  products: CheckStatusProduct[];
 };
 
 // Mock data จาก reference - เรือ
@@ -206,8 +333,14 @@ const MOCK_PRODUCTS_AIRPLANE: CheckStatusProduct[] = [
   },
 ];
 
-// เลือกเดือน 1, 2, 3, ...
-const MOCK_MONTHS = ["1", "2", "3", "4", "5", "6"];
+// Fallback เมื่อ API /months ไม่พร้อม — ใช้ year-month ตามรูปแบบ API
+function getDefaultMonths(): string[] {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  return [`${y}-${m}`];
+}
+const DEFAULT_MONTHS = getDefaultMonths();
 
 type TransportType = "ship" | "airplane";
 
@@ -221,13 +354,186 @@ function calcSummary(products: CheckStatusProduct[]) {
   return { totalBaht, paid, outstanding };
 }
 
-export default function CheckStatusTab() {
-  const [selectedMonth, setSelectedMonth] = useState<string>(MOCK_MONTHS[0]);
-  const [transportType, setTransportType] = useState<TransportType>("ship");
+function mapApiProduct(p: Record<string, unknown>): CheckStatusProduct {
+  return {
+    id: String(p.id ?? ""),
+    name: String(p.name ?? ""),
+    imageUrl: String(p.imageUrl ?? ""),
+    yen: Number(p.yen ?? 0),
+    baht: Number(p.baht ?? 0),
+    grams: Number(p.grams ?? 0),
+    shipShippingCost: Number(p.shipShippingCost ?? 0),
+    paid: Number(p.paid ?? 0),
+    shipRound: p.shipRound != null ? String(p.shipRound) : null,
+    arrivedAtJapan: Boolean(p.arrivedAtJapan),
+  };
+}
 
-  const products =
+export default function CheckStatusTab() {
+  const [selectedMonth, setSelectedMonth] = useState<string>(DEFAULT_MONTHS[0]);
+  const [transportType, setTransportType] = useState<TransportType>("airplane");
+  const [months, setMonths] = useState<string[]>(DEFAULT_MONTHS);
+  const [apiData, setApiData] = useState<CheckStatusData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [slipStatus, setSlipStatus] = useState<SlipStatus | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const fetchMonths = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_ENDUSER_PREFIX}/check-status/months`);
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data?.months)) {
+        const newMonths = json.data.months.map(String);
+        setMonths(newMonths);
+        if (newMonths.length > 0) {
+          setSelectedMonth(newMonths[0]);
+        }
+      }
+    } catch {
+      // ใช้ DEFAULT_MONTHS
+    }
+  }, []);
+
+  const fetchCheckStatus = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        month: selectedMonth,
+        transportType,
+      });
+      const res = await fetch(
+        `${API_ENDUSER_PREFIX}/check-status?${params}`
+      );
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        const d = json.data;
+        const products = Array.isArray(d.products)
+          ? d.products.map(mapApiProduct)
+          : [];
+        const summary = d.summary ?? calcSummary(products);
+        setApiData({
+          month: String(d.month ?? selectedMonth),
+          transportType: String(d.transportType ?? transportType),
+          user: d.user,
+          summary: {
+            totalBaht: Number(summary.totalBaht ?? 0),
+            paid: Number(summary.paid ?? 0),
+            outstanding: Number(summary.outstanding ?? 0),
+          },
+          products,
+        });
+      } else {
+        setApiData(null);
+      }
+    } catch {
+      setApiData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMonth, transportType]);
+
+  useEffect(() => {
+    fetchMonths();
+  }, [fetchMonths]);
+
+  useEffect(() => {
+    fetchCheckStatus();
+  }, [fetchCheckStatus]);
+
+  const fallbackProducts =
     transportType === "ship" ? MOCK_PRODUCTS_SHIP : MOCK_PRODUCTS_AIRPLANE;
-  const { totalBaht, paid, outstanding } = calcSummary(products);
+  const fallbackSummary = calcSummary(fallbackProducts);
+
+  const products = apiData?.products ?? fallbackProducts;
+  const totalBaht = apiData?.summary.totalBaht ?? fallbackSummary.totalBaht;
+  const paid = apiData?.summary.paid ?? fallbackSummary.paid;
+  const outstanding = apiData?.summary.outstanding ?? fallbackSummary.outstanding;
+  const user = apiData?.user;
+
+  const fetchSlipStatus = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        month: selectedMonth,
+        transportType,
+      });
+      const res = await fetch(
+        `${API_ENDUSER_PREFIX}/check-status/slip-status?${params}`
+      );
+      const json = await res.json();
+      if (res.ok && json.success && json.data?.slipStatus) {
+        setSlipStatus(json.data.slipStatus);
+      } else {
+        setSlipStatus(null);
+      }
+    } catch {
+      setSlipStatus(null);
+    }
+  }, [selectedMonth, transportType]);
+
+  useEffect(() => {
+    if (outstanding > 0) fetchSlipStatus();
+  }, [outstanding, fetchSlipStatus]);
+
+  const handleSubmitSlip = async (file: File) => {
+    setUploadError(null);
+    setUploadLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("slip", file);
+      const params = new URLSearchParams({
+        month: selectedMonth,
+        transportType,
+      });
+      const res = await fetch(
+        `${API_ENDUSER_PREFIX}/check-status/submit-slip?${params}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      const json = await res.json();
+
+      if (res.ok && json.success) {
+        setSlipStatus({
+          status: json.data?.status ?? "PENDING_VERIFICATION",
+          slipImageUrl: json.data?.slipImageUrl,
+        });
+        setUploadModalOpen(false);
+        fetchCheckStatus();
+      } else {
+        const err = json.error;
+        const code = err?.code;
+        const msg = err?.message ?? "ส่งสลิปไม่สำเร็จ";
+        if (code === "PENDING_EXISTS") {
+          setUploadError("คุณได้ส่งสลิปแล้ว รอ Staff ตรวจสอบ");
+          setSlipStatus({ status: "PENDING_VERIFICATION" });
+        } else if (code === "ALREADY_PAID") {
+          setUploadError("ชำระเงินแล้ว");
+          fetchSlipStatus();
+          fetchCheckStatus();
+        } else if (res.status === 401) {
+          setUploadError("กรุณาเข้าสู่ระบบ");
+        } else {
+          setUploadError(msg);
+        }
+      }
+    } catch {
+      setUploadError("ไม่สามารถส่งสลิปได้ กรุณาลองใหม่");
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const slipStatusLabel =
+    slipStatus?.status === "PENDING_VERIFICATION"
+      ? "รอ Staff ตรวจสอบ"
+      : slipStatus?.status === "CONFIRMED"
+        ? "ชำระแล้ว"
+        : slipStatus?.status === "REJECTED"
+          ? `ปฏิเสธ${slipStatus.rejectionReason ? `: ${slipStatus.rejectionReason}` : ""}`
+          : null;
 
   return (
     <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 pb-6 sm:pb-8 space-y-4 sm:space-y-6">
@@ -236,25 +542,26 @@ export default function CheckStatusTab() {
       <div className="mt-4 sm:mt-6 md:hidden bg-white rounded-xl sm:rounded-2xl border border-card-border shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-visible">
         <div className="flex flex-row gap-3 p-4">
           <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1 min-w-0 overflow-visible">
-            <p className="text-xs font-medium text-muted-dark mb-3">1. เลือกเดือน</p>
+            <p className="text-xs font-medium text-muted-dark mb-3">
+              1. เลือกเดือน
+            </p>
             <div className="flex items-center gap-2 p-2 rounded-xl border border-sakura-200/80 bg-white hover:border-sakura-300/80 transition-colors overflow-visible">
               <Calendar className="w-4 h-4 text-sakura-600 shrink-0" />
-              <span className="text-xs font-medium text-sakura-700 shrink-0">เลือกเดือน</span>
-              <MonthSelect value={selectedMonth} options={MOCK_MONTHS} onChange={setSelectedMonth} />
+              <span className="text-xs font-medium text-sakura-700 shrink-0">
+                เลือกเดือน
+              </span>
+              <MonthSelect
+                value={selectedMonth}
+                options={months}
+                onChange={setSelectedMonth}
+              />
             </div>
           </div>
           <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1 min-w-0">
-            <p className="text-xs font-medium text-muted-dark mb-3">2. ประเภทการส่ง</p>
+            <p className="text-xs font-medium text-muted-dark mb-3">
+              2. ประเภทการส่ง
+            </p>
             <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => setTransportType("ship")}
-                className={`flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-semibold transition-all touch-manipulation
-                  ${transportType === "ship" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
-              >
-                <Ship className="w-4 h-4 shrink-0" />
-                เรือ
-              </button>
               <button
                 type="button"
                 onClick={() => setTransportType("airplane")}
@@ -263,6 +570,15 @@ export default function CheckStatusTab() {
               >
                 <Plane className="w-4 h-4 shrink-0" />
                 เครื่องบิน
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransportType("ship")}
+                className={`flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-semibold transition-all touch-manipulation
+                  ${transportType === "ship" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
+              >
+                <Ship className="w-4 h-4 shrink-0" />
+                เรือ
               </button>
             </div>
           </div>
@@ -273,11 +589,15 @@ export default function CheckStatusTab() {
         <div className="flex flex-wrap justify-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-sakura-50/80 to-white">
           <div className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-white/60 border border-sakura-200/50 min-w-0 flex-1 sm:flex-initial max-w-[200px] text-center">
             <p className="text-xs text-muted-dark mb-0.5">ชื่อผู้ใช้งาน</p>
-            <p className="text-sm sm:text-base font-semibold text-sakura-800 truncate">@meee_sg</p>
+            <p className="text-sm sm:text-base font-semibold text-sakura-800 truncate">
+              {user?.username ?? "—"}
+            </p>
           </div>
           <div className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-white/60 border border-sakura-200/50 min-w-0 flex-1 sm:flex-initial max-w-[200px] text-center">
             <p className="text-xs text-muted-dark mb-0.5">Customer ID</p>
-            <p className="text-sm sm:text-base font-semibold text-sakura-800">B631</p>
+            <p className="text-sm sm:text-base font-semibold text-sakura-800">
+              {user?.customerId ?? "—"}
+            </p>
           </div>
         </div>
       </div>
@@ -286,49 +606,67 @@ export default function CheckStatusTab() {
       <div className="hidden md:block mt-4 sm:mt-6 bg-white rounded-xl sm:rounded-2xl border border-card-border shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-visible">
         <div className="flex flex-row md:gap-0 p-4 sm:p-4">
           <div className="flex flex-row gap-3 flex-1 pr-6 border-r border-sakura-200/80">
-          <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1 overflow-visible">
-            <p className="text-xs font-medium text-muted-dark mb-3">1. เลือกเดือน</p>
-            <div className="flex items-center gap-3 p-3 rounded-xl border border-sakura-200/80 bg-white hover:border-sakura-300/80 transition-colors overflow-visible">
-              <Calendar className="w-5 h-5 text-sakura-600 shrink-0" />
-              <span className="text-sm font-medium text-sakura-700 shrink-0">เลือกเดือน</span>
-              <MonthSelect value={selectedMonth} options={MOCK_MONTHS} onChange={setSelectedMonth} />
+            <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1 overflow-visible">
+              <p className="text-xs font-medium text-muted-dark mb-3">
+                1. เลือกเดือน
+              </p>
+              <div className="flex items-center gap-3 p-3 rounded-xl border border-sakura-200/80 bg-white hover:border-sakura-300/80 transition-colors overflow-visible">
+                <Calendar className="w-5 h-5 text-sakura-600 shrink-0" />
+                <span className="text-sm font-medium text-sakura-700 shrink-0">
+                  เลือกเดือน
+                </span>
+                <MonthSelect
+                  value={selectedMonth}
+                  options={months}
+                  onChange={setSelectedMonth}
+                />
+              </div>
             </div>
-          </div>
-          <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1">
-            <p className="text-xs font-medium text-muted-dark mb-3">2. ประเภทการส่ง</p>
-            <div className="flex flex-row gap-2">
-          <button
-            type="button"
-            onClick={() => setTransportType("ship")}
-            className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
-              ${transportType === "ship" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
-          >
-            <Ship className="w-5 h-5 shrink-0" />
-            เรือ
-          </button>
-          <button
-            type="button"
-            onClick={() => setTransportType("airplane")}
-            className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
+            <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1">
+              <p className="text-xs font-medium text-muted-dark mb-3">
+                2. ประเภทการส่ง
+              </p>
+              <div className="flex flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTransportType("airplane")}
+                  className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
               ${transportType === "airplane" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
-          >
-            <Plane className="w-5 h-5 shrink-0" />
-            เครื่องบิน
-          </button>
+                >
+                  <Plane className="w-5 h-5 shrink-0" />
+                  เครื่องบิน
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransportType("ship")}
+                  className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
+              ${transportType === "ship" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
+                >
+                  <Ship className="w-5 h-5 shrink-0" />
+                  เรือ
+                </button>
+              </div>
             </div>
-          </div>
           </div>
           <div className="flex-1 pl-6">
             <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 h-full">
-              <p className="text-xs font-medium text-muted-dark mb-3">ข้อมูลผู้ใช้งาน</p>
+              <p className="text-xs font-medium text-muted-dark mb-3">
+                ข้อมูลผู้ใช้งาน
+              </p>
               <div className="flex flex-row flex-wrap gap-2 sm:gap-3">
                 <div className="px-4 py-3 rounded-lg bg-white/80 border border-sakura-200/60 text-center flex-1 min-w-0">
-                  <p className="text-xs text-muted-dark mb-0.5">ชื่อผู้ใช้งาน</p>
-                  <p className="text-sm sm:text-base font-semibold text-sakura-800 truncate">@meee_sg</p>
+                  <p className="text-xs text-muted-dark mb-0.5">
+                    ชื่อผู้ใช้งาน
+                  </p>
+                  <p className="text-sm sm:text-base font-semibold text-sakura-800 truncate">
+                    {user?.username ?? "—"}
+                  </p>
                 </div>
                 <div className="px-4 py-3 rounded-lg bg-white/80 border border-sakura-200/60 text-center flex-1 min-w-0">
                   <p className="text-xs text-muted-dark mb-0.5">Customer ID</p>
-                  <p className="text-sm sm:text-base font-semibold text-sakura-800">B631</p>
+                  <p className="text-sm sm:text-base font-semibold text-sakura-800">
+                    {user?.customerId ?? "—"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -338,54 +676,102 @@ export default function CheckStatusTab() {
 
       {/* ส่วนที่ 3: Content Card - layout แนวนอน ซ้าย label ขวา value + wavy pattern */}
       <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-card-border bg-white shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6 md:px-8 py-4 sm:py-6">
-            {/* ซ้าย: Label + Legend */}
-            <div className="min-w-0 sm:max-w-md">
-              <h3 className="text-base sm:text-lg font-semibold text-sakura-900 mb-1">
-                {transportType === "ship"
-                  ? "สรุปสินค้าเรือ"
-                  : "สรุปสินค้าเครื่องบิน"}
-              </h3>
-              <div className="flex items-center gap-2 mb-1">
-                <CheckboxTick size="sm" />
-                <span className="text-xs sm:text-sm text-muted-dark">
-                  = ถึงบ้านญี่ปุ่นแล้ว
-                </span>
-              </div>
-              <p className="text-xs text-muted-dark leading-relaxed">
-                ถ้า 10 วันแล้วสินค้ายังไม่ถึงบ้านญี่ปุ่นซักที
-                ให้ส่งลิ้งให้แอดมินตรวจสอบนะคะ
-              </p>
-            </div>
-            {/* ขวา: ค่าหลัก 3 ตัว - grid บนมือถือ | PC ขยายเต็มความกว้าง */}
-            <div className="grid grid-cols-3 sm:flex sm:flex-1 sm:justify-between sm:gap-8 md:gap-12 lg:gap-16 gap-3 min-w-0">
-              <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
-                <p className="text-xs sm:text-sm font-medium text-muted-dark uppercase tracking-wider mb-0.5 sm:mb-1">
-                  เงินทั้งหมด
-                </p>
-                <p className="text-3xl font-bold text-sakura-900 tracking-tight break-all">
-                  {totalBaht.toLocaleString("th-TH")}
-                </p>
-              </div>
-              <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
-                <p className="text-xs sm:text-sm font-medium text-emerald-700/80 uppercase tracking-wider mb-0.5 sm:mb-1">
-                  ชำระเสร็จแล้ว
-                </p>
-                <p className="text-3xl font-bold text-emerald-700 tracking-tight break-all">
-                  {paid.toLocaleString("th-TH")}
-                </p>
-              </div>
-              <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
-                <p className="text-xs sm:text-sm font-medium text-red-600/90 uppercase tracking-wider mb-0.5 sm:mb-1">
-                  ยอดค้างชำระ
-                </p>
-                <p className="text-3xl font-bold text-red-600 tracking-tight break-all">
-                  {outstanding.toLocaleString("th-TH")}
-                </p>
-              </div>
+        {loading && (
+          <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
+            <div className="flex items-center gap-2 text-sakura-700">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm font-medium">กำลังโหลด...</span>
             </div>
           </div>
+        )}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6 md:px-8 py-4 sm:py-6">
+          {/* ซ้าย: Label + Legend */}
+          <div className="min-w-0 sm:max-w-md">
+            <h3 className="text-base sm:text-lg font-semibold text-sakura-900 mb-1">
+              {transportType === "ship"
+                ? "สรุปสินค้าเรือ"
+                : "สรุปสินค้าเครื่องบิน"}
+            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <CheckboxTick size="sm" />
+              <span className="text-xs sm:text-sm text-muted-dark">
+                = ถึงบ้านญี่ปุ่นแล้ว
+              </span>
+            </div>
+            <p className="text-xs text-muted-dark leading-relaxed">
+              ถ้า 10 วันแล้วสินค้ายังไม่ถึงบ้านญี่ปุ่นซักที
+              ให้ส่งลิ้งให้แอดมินตรวจสอบนะคะ
+            </p>
+          </div>
+          {/* ขวา: ค่าหลัก 3 ตัว - grid บนมือถือ | PC ขยายเต็มความกว้าง */}
+          <div className="grid grid-cols-3 sm:flex sm:flex-1 sm:justify-between sm:gap-8 md:gap-12 lg:gap-16 gap-3 min-w-0">
+            <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
+              <p className="text-xs sm:text-sm font-medium text-muted-dark uppercase tracking-wider mb-0.5 sm:mb-1">
+                เงินทั้งหมด
+              </p>
+              <p className="text-3xl font-bold text-sakura-900 tracking-tight break-all">
+                {totalBaht.toLocaleString("th-TH")}
+              </p>
+            </div>
+            <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
+              <p className="text-xs sm:text-sm font-medium text-emerald-700/80 uppercase tracking-wider mb-0.5 sm:mb-1">
+                ชำระเสร็จแล้ว
+              </p>
+              <p className="text-3xl font-bold text-emerald-700 tracking-tight break-all">
+                {paid.toLocaleString("th-TH")}
+              </p>
+            </div>
+            <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
+              <p className="text-xs sm:text-sm font-medium text-red-600/90 uppercase tracking-wider mb-0.5 sm:mb-1">
+                ยอดค้างชำระ
+              </p>
+              <p className="text-3xl font-bold text-red-600 tracking-tight break-all">
+                {outstanding.toLocaleString("th-TH")}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* ปุ่มอัพโหลดสลิป + สถานะสลิป — แสดงเมื่อยอดค้างชำระ > 0 */}
+      {outstanding > 0 && (
+        <div className="rounded-xl sm:rounded-2xl border border-card-border bg-white shadow-[0_4px_24px_rgba(0,0,0,0.06)] px-4 sm:px-6 md:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {slipStatusLabel && (
+              <p
+                className={`text-sm font-semibold ${
+                  slipStatus?.status === "CONFIRMED"
+                    ? "text-emerald-600"
+                    : slipStatus?.status === "REJECTED"
+                      ? "text-red-600"
+                      : "text-amber-600"
+                }`}
+              >
+                สถานะสลิป: {slipStatusLabel}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setUploadError(null);
+                setUploadModalOpen(true);
+              }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sakura-700 text-white font-semibold hover:bg-sakura-800 transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              อัพโหลดสลิปโอนเงิน
+            </button>
+          </div>
+        </div>
+      )}
+
+      <UploadSlipModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onSubmit={handleSubmitSlip}
+        loading={uploadLoading}
+        error={uploadError}
+      />
 
       {/* ส่วนที่ 4: Items - Card บนมือถือ, Table บน desktop */}
       <div className="rounded-xl sm:rounded-2xl border border-card-border bg-white shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-hidden">
@@ -397,41 +783,41 @@ export default function CheckStatusTab() {
             </h4>
           </div>
           <div className="divide-y divide-sakura-100">
-          {products.map((p, i) => (
-            <div
-              key={p.id}
-              className={`p-4 flex gap-3 ${
-                p.arrivedAtJapan ? "bg-emerald-50/50" : "bg-white"
-              }`}
-            >
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-sakura-100 relative shrink-0">
-                <Image
-                  src={p.imageUrl}
-                  alt={p.name}
-                  fill
-                  className="object-cover"
-                  sizes="64px"
-                  unoptimized
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start gap-2 mb-1">
-                  {p.arrivedAtJapan && <CheckboxTick size="sm" />}
-                  <span className="text-sm font-medium text-sakura-900 line-clamp-2 flex-1">
-                    {p.name}
-                  </span>
+            {products.map((p, i) => (
+              <div
+                key={p.id}
+                className={`p-4 flex gap-3 ${
+                  p.arrivedAtJapan ? "bg-emerald-50/50" : "bg-white"
+                }`}
+              >
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-sakura-100 relative shrink-0">
+                  <Image
+                    src={p.imageUrl}
+                    alt={p.name}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                    unoptimized
+                  />
                 </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-dark">
-                  <span>{formatJPY(p.yen)}</span>
-                  <span>{p.baht.toLocaleString("th-TH")} บาท</span>
-                  <span>{p.grams}g</span>
-                  <span>ส่ง {p.shipShippingCost}</span>
-                  <span>โอน {p.paid}</span>
-                  {p.shipRound && <span>รอบ {p.shipRound}</span>}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-2 mb-1">
+                    {p.arrivedAtJapan && <CheckboxTick size="sm" />}
+                    <span className="text-sm font-medium text-sakura-900 line-clamp-2 flex-1">
+                      {p.name}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-dark">
+                    <span>{formatJPY(p.yen)}</span>
+                    <span>{p.baht.toLocaleString("th-TH")} บาท</span>
+                    <span>{p.grams}g</span>
+                    <span>ส่ง {p.shipShippingCost}</span>
+                    <span>โอน {p.paid}</span>
+                    {p.shipRound && <span>รอบ {p.shipRound}</span>}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
           </div>
         </div>
         {/* Desktop: Table */}
