@@ -9,14 +9,10 @@ import {
   ChevronDown,
   Calendar,
   Upload,
-  X,
-  Loader2,
 } from "lucide-react";
 import { formatJPY } from "@/lib/utils";
 import { API_ENDUSER_PREFIX } from "@/lib/api-config";
-
-const MAX_SLIP_SIZE_MB = 5;
-const ACCEPT_IMAGES = "image/jpeg,image/png,image/gif,image/webp";
+import { UploadSlipModal } from "@/components/check-status/upload-slip-modal";
 
 // Custom dropdown แทน native select - ควบคุม styling ได้ ไม่มีช่องว่าง
 function MonthSelect({
@@ -96,105 +92,6 @@ type SlipStatus = {
   rejectionReason?: string | null;
 };
 
-function UploadSlipModal({
-  open,
-  onClose,
-  onSubmit,
-  loading,
-  error,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (file: File) => void;
-  loading: boolean;
-  error: string | null;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > MAX_SLIP_SIZE_MB * 1024 * 1024) {
-      setFile(null);
-      return;
-    }
-    setFile(f);
-  };
-
-  const handleSubmit = () => {
-    if (file) onSubmit(file);
-  };
-
-  const handleClose = () => {
-    setFile(null);
-    if (inputRef.current) inputRef.current.value = "";
-    onClose();
-  };
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-sakura-900">
-            อัพโหลดสลิปโอนเงิน
-          </h3>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-1 rounded-lg hover:bg-sakura-100 text-muted-dark"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <p className="text-sm text-muted-dark mb-4">
-          เลือกรูปสลิปโอนเงิน (jpg, png, gif, webp สูงสุด 5MB)
-        </p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPT_IMAGES}
-          capture="environment"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-sakura-700 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-sakura-100 file:text-sakura-800 file:font-semibold file:cursor-pointer hover:file:bg-sakura-200"
-        />
-        {file && (
-          <p className="mt-2 text-xs text-muted-dark truncate">{file.name}</p>
-        )}
-        {error && (
-          <p className="mt-2 text-sm text-red-600">{error}</p>
-        )}
-        <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-sakura-200 text-sakura-800 font-semibold hover:bg-sakura-50"
-          >
-            ยกเลิก
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!file || loading}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-sakura-700 text-white font-semibold hover:bg-sakura-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                กำลังส่ง...
-              </>
-            ) : (
-              "ส่งสลิป"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Product item - จาก API หรือ mock
 type CheckStatusProduct = {
   id: string;
@@ -204,9 +101,12 @@ type CheckStatusProduct = {
   baht: number;
   grams: number;
   shipShippingCost: number;
+  domesticShipping: number | null;
   paid: number;
   shipRound: string | null;
   arrivedAtJapan: boolean;
+  dueDate: string | null;
+  isOverdue: boolean;
 };
 
 type CheckStatusData = {
@@ -227,9 +127,12 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     baht: 442,
     grams: 95,
     shipShippingCost: 34,
+    domesticShipping: null,
     paid: 300,
     shipRound: null,
     arrivedAtJapan: false,
+    dueDate: null,
+    isOverdue: false,
   },
   {
     id: "s2",
@@ -239,9 +142,12 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     baht: 520,
     grams: 193,
     shipShippingCost: 68,
+    domesticShipping: null,
     paid: 200,
     shipRound: null,
     arrivedAtJapan: false,
+    dueDate: null,
+    isOverdue: false,
   },
   {
     id: "s3",
@@ -251,9 +157,12 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     baht: 280,
     grams: 106,
     shipShippingCost: 38,
+    domesticShipping: null,
     paid: 400,
     shipRound: "8 มีนา",
     arrivedAtJapan: true,
+    dueDate: null,
+    isOverdue: false,
   },
   {
     id: "s4",
@@ -263,9 +172,12 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     baht: 292,
     grams: 106,
     shipShippingCost: 38,
+    domesticShipping: null,
     paid: 300,
     shipRound: "8 มีนา",
     arrivedAtJapan: true,
+    dueDate: null,
+    isOverdue: false,
   },
   {
     id: "s5",
@@ -275,9 +187,12 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     baht: 80,
     grams: 45,
     shipShippingCost: 16,
+    domesticShipping: null,
     paid: 200,
     shipRound: "8 มีนา",
     arrivedAtJapan: true,
+    dueDate: null,
+    isOverdue: false,
   },
   {
     id: "s6",
@@ -287,9 +202,12 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     baht: 624,
     grams: 70,
     shipShippingCost: 25,
+    domesticShipping: null,
     paid: 350,
     shipRound: null,
     arrivedAtJapan: false,
+    dueDate: null,
+    isOverdue: false,
   },
   {
     id: "s7",
@@ -299,9 +217,12 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     baht: 624,
     grams: 77,
     shipShippingCost: 27,
+    domesticShipping: null,
     paid: 0,
     shipRound: null,
     arrivedAtJapan: false,
+    dueDate: null,
+    isOverdue: false,
   },
 ];
 
@@ -315,9 +236,12 @@ const MOCK_PRODUCTS_AIRPLANE: CheckStatusProduct[] = [
     baht: 6500,
     grams: 250,
     shipShippingCost: 0,
+    domesticShipping: null,
     paid: 6500,
     shipRound: null,
     arrivedAtJapan: true,
+    dueDate: null,
+    isOverdue: false,
   },
   {
     id: "a2",
@@ -327,9 +251,12 @@ const MOCK_PRODUCTS_AIRPLANE: CheckStatusProduct[] = [
     baht: 2210,
     grams: 180,
     shipShippingCost: 0,
+    domesticShipping: null,
     paid: 2210,
     shipRound: null,
     arrivedAtJapan: true,
+    dueDate: null,
+    isOverdue: false,
   },
 ];
 
@@ -354,6 +281,15 @@ function calcSummary(products: CheckStatusProduct[]) {
   return { totalBaht, paid, outstanding };
 }
 
+function formatDueDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "2-digit",
+  });
+}
+
 function mapApiProduct(p: Record<string, unknown>): CheckStatusProduct {
   return {
     id: String(p.id ?? ""),
@@ -363,9 +299,12 @@ function mapApiProduct(p: Record<string, unknown>): CheckStatusProduct {
     baht: Number(p.baht ?? 0),
     grams: Number(p.grams ?? 0),
     shipShippingCost: Number(p.shipShippingCost ?? 0),
+    domesticShipping: p.domesticShipping != null ? Number(p.domesticShipping) : null,
     paid: Number(p.paid ?? 0),
     shipRound: p.shipRound != null ? String(p.shipRound) : null,
     arrivedAtJapan: Boolean(p.arrivedAtJapan),
+    dueDate: p.dueDate != null ? String(p.dueDate) : null,
+    isOverdue: Boolean(p.isOverdue),
   };
 }
 
@@ -442,14 +381,10 @@ export default function CheckStatusTab() {
     fetchCheckStatus();
   }, [fetchCheckStatus]);
 
-  const fallbackProducts =
-    transportType === "ship" ? MOCK_PRODUCTS_SHIP : MOCK_PRODUCTS_AIRPLANE;
-  const fallbackSummary = calcSummary(fallbackProducts);
-
-  const products = apiData?.products ?? fallbackProducts;
-  const totalBaht = apiData?.summary.totalBaht ?? fallbackSummary.totalBaht;
-  const paid = apiData?.summary.paid ?? fallbackSummary.paid;
-  const outstanding = apiData?.summary.outstanding ?? fallbackSummary.outstanding;
+  const products = apiData?.products ?? [];
+  const totalBaht = apiData?.summary.totalBaht ?? 0;
+  const paid = apiData?.summary.paid ?? 0;
+  const outstanding = apiData?.summary.outstanding ?? 0;
   const user = apiData?.user;
 
   const fetchSlipStatus = useCallback(async () => {
@@ -676,14 +611,6 @@ export default function CheckStatusTab() {
 
       {/* ส่วนที่ 3: Content Card - layout แนวนอน ซ้าย label ขวา value + wavy pattern */}
       <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-card-border bg-white shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-        {loading && (
-          <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-xl">
-            <div className="flex items-center gap-2 text-sakura-700">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm font-medium">กำลังโหลด...</span>
-            </div>
-          </div>
-        )}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6 md:px-8 py-4 sm:py-6">
           {/* ซ้าย: Label + Legend */}
           <div className="min-w-0 sm:max-w-md">
@@ -705,30 +632,43 @@ export default function CheckStatusTab() {
           </div>
           {/* ขวา: ค่าหลัก 3 ตัว - grid บนมือถือ | PC ขยายเต็มความกว้าง */}
           <div className="grid grid-cols-3 sm:flex sm:flex-1 sm:justify-between sm:gap-8 md:gap-12 lg:gap-16 gap-3 min-w-0">
-            <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
-              <p className="text-xs sm:text-sm font-medium text-muted-dark uppercase tracking-wider mb-0.5 sm:mb-1">
-                เงินทั้งหมด
-              </p>
-              <p className="text-3xl font-bold text-sakura-900 tracking-tight break-all">
-                {totalBaht.toLocaleString("th-TH")}
-              </p>
-            </div>
-            <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
-              <p className="text-xs sm:text-sm font-medium text-emerald-700/80 uppercase tracking-wider mb-0.5 sm:mb-1">
-                ชำระเสร็จแล้ว
-              </p>
-              <p className="text-3xl font-bold text-emerald-700 tracking-tight break-all">
-                {paid.toLocaleString("th-TH")}
-              </p>
-            </div>
-            <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
-              <p className="text-xs sm:text-sm font-medium text-red-600/90 uppercase tracking-wider mb-0.5 sm:mb-1">
-                ยอดค้างชำระ
-              </p>
-              <p className="text-3xl font-bold text-red-600 tracking-tight break-all">
-                {outstanding.toLocaleString("th-TH")}
-              </p>
-            </div>
+            {loading ? (
+              <>
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="min-w-0 text-center sm:flex-1 sm:min-w-[120px] space-y-2">
+                    <div className="skeleton-shimmer h-3 w-16 rounded mx-auto" />
+                    <div className="skeleton-shimmer h-8 w-20 rounded mx-auto" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
+                  <p className="text-xs sm:text-sm font-medium text-muted-dark uppercase tracking-wider mb-0.5 sm:mb-1">
+                    เงินทั้งหมด
+                  </p>
+                  <p className="text-3xl font-bold text-sakura-900 tracking-tight break-all">
+                    {totalBaht.toLocaleString("th-TH")}
+                  </p>
+                </div>
+                <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
+                  <p className="text-xs sm:text-sm font-medium text-emerald-700/80 uppercase tracking-wider mb-0.5 sm:mb-1">
+                    ชำระเสร็จแล้ว
+                  </p>
+                  <p className="text-3xl font-bold text-emerald-700 tracking-tight break-all">
+                    {paid.toLocaleString("th-TH")}
+                  </p>
+                </div>
+                <div className="min-w-0 text-center sm:flex-1 sm:min-w-[120px]">
+                  <p className="text-xs sm:text-sm font-medium text-red-600/90 uppercase tracking-wider mb-0.5 sm:mb-1">
+                    ยอดค้างชำระ
+                  </p>
+                  <p className="text-3xl font-bold text-red-600 tracking-tight break-all">
+                    {outstanding.toLocaleString("th-TH")}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -779,15 +719,33 @@ export default function CheckStatusTab() {
         <div className="md:hidden">
           <div className="px-4 py-3 border-b border-sakura-100 bg-sakura-50/50">
             <h4 className="text-sm font-semibold text-sakura-800">
-              รายการสินค้า ({products.length} รายการ)
+              {loading ? "รายการสินค้า" : `รายการสินค้า (${products.length} รายการ)`}
             </h4>
           </div>
+          {loading ? (
+            <div className="divide-y divide-sakura-100">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-4 flex gap-3">
+                  <div className="skeleton-shimmer w-14 h-14 rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="skeleton-shimmer h-3.5 w-3/4 rounded" />
+                    <div className="skeleton-shimmer h-3.5 w-1/2 rounded" />
+                    <div className="skeleton-shimmer h-3 w-1/3 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="divide-y divide-sakura-100">
             {products.map((p, i) => (
               <div
                 key={p.id}
                 className={`p-4 flex gap-3 ${
-                  p.arrivedAtJapan ? "bg-emerald-50/50" : "bg-white"
+                  p.isOverdue
+                    ? "bg-red-50/50"
+                    : p.arrivedAtJapan
+                    ? "bg-emerald-50/50"
+                    : "bg-white"
                 }`}
               >
                 <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-sakura-100 relative shrink-0">
@@ -811,14 +769,20 @@ export default function CheckStatusTab() {
                     <span>{formatJPY(p.yen)}</span>
                     <span>{p.baht.toLocaleString("th-TH")} บาท</span>
                     <span>{p.grams}g</span>
-                    <span>ส่ง {p.shipShippingCost}</span>
+                    <span>ส่งญี่ปุ่น {p.shipShippingCost}</span>
                     <span>โอน {p.paid}</span>
                     {p.shipRound && <span>รอบ {p.shipRound}</span>}
+                    {p.dueDate && (
+                      <span className={p.isOverdue ? "text-red-500 font-semibold" : ""}>
+                        ครบกำหนด {formatDueDate(p.dueDate)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
+          )}
         </div>
         {/* Desktop: Table */}
         <div className="hidden md:block overflow-x-auto">
@@ -852,14 +816,34 @@ export default function CheckStatusTab() {
                 <th className="px-5 py-4 text-left text-xs font-semibold text-muted-dark uppercase tracking-wider">
                   รอบเรือ
                 </th>
+                <th className="px-5 py-4 text-left text-xs font-semibold text-muted-dark uppercase tracking-wider">
+                  ครบกำหนดชำระ
+                </th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p, i) => (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-sakura-100 last:border-b-0">
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-4 rounded" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer w-12 h-12 rounded-xl" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-48 rounded" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-14 rounded ml-auto" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-14 rounded ml-auto" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-10 rounded ml-auto" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-10 rounded ml-auto" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-14 rounded ml-auto" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-16 rounded" /></td>
+                    <td className="px-5 py-4"><div className="skeleton-shimmer h-4 w-20 rounded" /></td>
+                  </tr>
+                ))
+              ) : products.map((p, i) => (
                 <tr
                   key={p.id}
                   className={`border-b border-sakura-100 last:border-b-0 transition-colors ${
-                    p.arrivedAtJapan
+                    p.isOverdue
+                      ? "bg-red-100/80 hover:bg-red-100"
+                      : p.arrivedAtJapan
                       ? "bg-emerald-100/80 hover:bg-emerald-100"
                       : "hover:bg-sakura-50/40"
                   }`}
@@ -907,6 +891,15 @@ export default function CheckStatusTab() {
                   </td>
                   <td className="px-5 py-4 text-sm text-muted-dark font-medium">
                     {p.shipRound ?? "—"}
+                  </td>
+                  <td className="px-5 py-4 text-sm font-medium">
+                    {p.dueDate ? (
+                      <span className={p.isOverdue ? "text-red-500 font-semibold" : "text-muted-dark"}>
+                        {formatDueDate(p.dueDate)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-dark">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -19,9 +19,15 @@ export interface AuthUser {
   email: string
   name: string
   phone: string | null
+  userCode?: string
+  username?: string | null
   role: string
   isEmailVerified: boolean
   createdAt: string
+  wallet?: {
+    balance: number
+    currency: string
+  }
 }
 
 interface AuthContextType {
@@ -63,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch(`${API_ENDUSER_PREFIX}/auth/me`)
       if (res.ok) {
         const json = await res.json()
-        setUser(json.data.user)
+        setUser(json.data)
       } else {
         setUser(null)
       }

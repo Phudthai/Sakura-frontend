@@ -17,10 +17,13 @@ export async function POST(request: NextRequest) {
   }
 
   const { searchParams } = request.nextUrl
+  const purpose = searchParams.get('purpose')
   const month = searchParams.get('month')
   const transportType = searchParams.get('transportType')
 
-  if (!month || !transportType) {
+  const isDomestic = purpose === 'domestic'
+
+  if (!isDomestic && (!month || !transportType)) {
     return NextResponse.json(
       {
         success: false,
@@ -46,7 +49,9 @@ export async function POST(request: NextRequest) {
   const backendFormData = new FormData()
   backendFormData.append('slip', slip)
 
-  const url = `${API_URL}${API_ENDUSER_PREFIX}/check-status/submit-slip?month=${encodeURIComponent(month)}&transportType=${encodeURIComponent(transportType)}`
+  const url = isDomestic
+    ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/submit-slip?purpose=domestic`
+    : `${API_URL}${API_ENDUSER_PREFIX}/check-status/submit-slip?month=${encodeURIComponent(month!)}&transportType=${encodeURIComponent(transportType!)}`
 
   try {
     const res = await fetch(url, {

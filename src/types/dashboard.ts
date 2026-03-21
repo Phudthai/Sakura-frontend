@@ -141,3 +141,32 @@ export interface UserNotification {
   createdAt: string
 }
 
+// ---------------------------------------------------------------------------
+// Wallet
+// ---------------------------------------------------------------------------
+
+export type WalletTransactionType =
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'PAYMENT'
+  | 'REFUND'
+  | 'OVERPAYMENT_CREDIT'
+
+export interface WalletTransaction {
+  id: number
+  walletId: number
+  amount: number
+  balanceAfter: number
+  type: WalletTransactionType
+  referenceType?: string
+  referenceId?: number
+  idempotencyKey?: string
+  createdAt: string
+}
+
+export interface WalletData {
+  balance: number
+  currency: string
+  transactions: WalletTransaction[]
+}
+

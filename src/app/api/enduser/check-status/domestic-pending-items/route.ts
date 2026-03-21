@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getAuthCookie } from '@/lib/auth'
 import { API_ENDUSER_PREFIX } from '@/lib/api-config'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const token = getAuthCookie()
   if (!token) {
     return NextResponse.json(
@@ -16,26 +16,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const { searchParams } = request.nextUrl
-  const purpose = searchParams.get('purpose')
-  const month = searchParams.get('month')
-  const transportType = searchParams.get('transportType')
-
-  const isDomestic = purpose === 'domestic'
-
-  if (!isDomestic && (!month || !transportType)) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: 'BAD_REQUEST', message: 'month and transportType are required' },
-      },
-      { status: 400 }
-    )
-  }
-
-  const url = isDomestic
-    ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/slip-status?purpose=domestic`
-    : `${API_URL}${API_ENDUSER_PREFIX}/check-status/slip-status?month=${encodeURIComponent(month!)}&transportType=${encodeURIComponent(transportType!)}`
+  const url = `${API_URL}${API_ENDUSER_PREFIX}/check-status/domestic-pending-items`
 
   try {
     const res = await fetch(url, {
@@ -60,7 +41,8 @@ export async function GET(request: NextRequest) {
         success: false,
         error: {
           code: 'NETWORK_ERROR',
-          message: err instanceof Error ? err.message : 'Failed to fetch slip status',
+          message:
+            err instanceof Error ? err.message : 'Failed to fetch domestic pending items',
         },
       },
       { status: 500 }

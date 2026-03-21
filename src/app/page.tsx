@@ -5,9 +5,11 @@ import { useSearchParams } from "next/navigation";
 import Header from "@/components/layout/header";
 import SearchLinkTab from "@/components/search-link/search-link-tab";
 import CheckStatusTab from "@/components/check-status/check-status-tab";
+import DomesticPendingTab from "@/components/check-status/domestic-pending-tab";
 
 const TABS = [
   { id: "check_status", label: "เช็คสถานะสินค้า" },
+  { id: "domestic_pending", label: "สินค้าที่รอจัดส่งในไทย" },
   { id: "search_link", label: "ประมูลด้วยตนเอง" },
 ] as const;
 
@@ -24,6 +26,9 @@ function HomeContent() {
 
       {/* Tab: check_status */}
       {tab === "check_status" && <CheckStatusTab />}
+
+      {/* Tab: domestic_pending */}
+      {tab === "domestic_pending" && <DomesticPendingTab />}
 
       {/* Tab: search_link */}
       {tab === "search_link" && <SearchLinkTab />}

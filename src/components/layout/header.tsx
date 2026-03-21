@@ -17,6 +17,7 @@ import {
   Truck,
   ClipboardList,
   MapPin,
+  Wallet,
 } from "lucide-react";
 import SearchInput from "@/components/ui/search-input";
 import { useAuth } from "@/context/auth-context";
@@ -70,7 +71,21 @@ export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
               /* Skeleton while loading */
               <div className="w-24 h-9 rounded-full bg-sakura-200 animate-pulse" />
             ) : user ? (
-              /* Logged in — user dropdown */
+              <>
+              {user.wallet != null && (
+                <Link
+                  href="/dashboard/wallet"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-full
+                             bg-sakura-100 hover:bg-sakura-200 transition-colors shrink-0"
+                >
+                  <Wallet className="w-4 h-4 text-sakura-700" />
+                  <span className="text-sm font-semibold text-sakura-900">
+                    {user.wallet.balance.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-sakura-600">{user.wallet.currency}</span>
+                </Link>
+              )}
+              {/* Logged in — user dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
@@ -107,6 +122,18 @@ export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
                         <p className="text-xs text-muted-dark truncate">
                           {user.email}
                         </p>
+                        {user.wallet != null && (
+                          <Link
+                            href="/dashboard/wallet"
+                            onClick={() => setShowDropdown(false)}
+                            className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-full
+                                       bg-sakura-100 hover:bg-sakura-200 transition-colors
+                                       text-xs font-semibold text-sakura-800"
+                          >
+                            <Wallet className="w-3 h-3" />
+                            {user.wallet.balance.toLocaleString()} {user.wallet.currency}
+                          </Link>
+                        )}
                         {user.role !== "CUSTOMER" && (
                           <span
                             className="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold
@@ -170,6 +197,7 @@ export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
                   </>
                 )}
               </div>
+              </>
             ) : (
               /* Not logged in — sign in / create account buttons */
               <>
