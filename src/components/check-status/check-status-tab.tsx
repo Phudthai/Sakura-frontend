@@ -103,7 +103,10 @@ type CheckStatusProduct = {
   shipShippingCost: number;
   domesticShipping: number | null;
   paid: number;
+  /** lot_code ดิบ — backward compatible */
   shipRound: string | null;
+  /** ข้อความแสดงจาก backend (เรือสั้น / แอร์เต็มสตริง) */
+  lotDisplay: string | null;
   arrivedAtJapan: boolean;
   dueDate: string | null;
   isOverdue: boolean;
@@ -130,6 +133,7 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 300,
     shipRound: null,
+    lotDisplay: null,
     arrivedAtJapan: false,
     dueDate: null,
     isOverdue: false,
@@ -145,6 +149,7 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 200,
     shipRound: null,
+    lotDisplay: null,
     arrivedAtJapan: false,
     dueDate: null,
     isOverdue: false,
@@ -160,6 +165,7 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 400,
     shipRound: "8 มีนา",
+    lotDisplay: "LOT184 (วันที่ตัดรอบ 22 มีนา)",
     arrivedAtJapan: true,
     dueDate: null,
     isOverdue: false,
@@ -175,6 +181,7 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 300,
     shipRound: "8 มีนา",
+    lotDisplay: "LOT184 (วันที่ตัดรอบ 22 มีนา)",
     arrivedAtJapan: true,
     dueDate: null,
     isOverdue: false,
@@ -190,6 +197,7 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 200,
     shipRound: "8 มีนา",
+    lotDisplay: "LOT184 (วันที่ตัดรอบ 22 มีนา)",
     arrivedAtJapan: true,
     dueDate: null,
     isOverdue: false,
@@ -205,6 +213,7 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 350,
     shipRound: null,
+    lotDisplay: null,
     arrivedAtJapan: false,
     dueDate: null,
     isOverdue: false,
@@ -220,6 +229,7 @@ const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 0,
     shipRound: null,
+    lotDisplay: null,
     arrivedAtJapan: false,
     dueDate: null,
     isOverdue: false,
@@ -239,6 +249,8 @@ const MOCK_PRODUCTS_AIRPLANE: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 6500,
     shipRound: null,
+    lotDisplay:
+      "ล่าช้า**LOT183(ตัดรอบ6มีนา/ถึงไทยประมาณ13มีนา)",
     arrivedAtJapan: true,
     dueDate: null,
     isOverdue: false,
@@ -254,6 +266,7 @@ const MOCK_PRODUCTS_AIRPLANE: CheckStatusProduct[] = [
     domesticShipping: null,
     paid: 2210,
     shipRound: null,
+    lotDisplay: "LOT182(ตัดรอบ1มีนา/ถึงไทยประมาณ8มีนา)",
     arrivedAtJapan: true,
     dueDate: null,
     isOverdue: false,
@@ -290,7 +303,16 @@ function formatDueDate(dateStr: string): string {
   });
 }
 
+function getLotDisplayText(p: CheckStatusProduct): string {
+  return p.lotDisplay ?? p.shipRound ?? "—";
+}
+
 function mapApiProduct(p: Record<string, unknown>): CheckStatusProduct {
+  const lotRaw = p.lotDisplay;
+  const lotDisplay =
+    lotRaw != null && String(lotRaw).trim() !== ""
+      ? String(lotRaw)
+      : null;
   return {
     id: String(p.id ?? ""),
     name: String(p.name ?? ""),
@@ -302,6 +324,7 @@ function mapApiProduct(p: Record<string, unknown>): CheckStatusProduct {
     domesticShipping: p.domesticShipping != null ? Number(p.domesticShipping) : null,
     paid: Number(p.paid ?? 0),
     shipRound: p.shipRound != null ? String(p.shipRound) : null,
+    lotDisplay,
     arrivedAtJapan: Boolean(p.arrivedAtJapan),
     dueDate: p.dueDate != null ? String(p.dueDate) : null,
     isOverdue: Boolean(p.isOverdue),
@@ -737,7 +760,9 @@ export default function CheckStatusTab() {
             </div>
           ) : (
           <div className="divide-y divide-sakura-100">
-            {products.map((p, i) => (
+            {products.map((p, i) => {
+              const lotText = getLotDisplayText(p);
+              return (
               <div
                 key={p.id}
                 className={`p-4 flex gap-3 ${
@@ -771,7 +796,11 @@ export default function CheckStatusTab() {
                     <span>{p.grams}g</span>
                     <span>ส่งญี่ปุ่น {p.shipShippingCost}</span>
                     <span>โอน {p.paid}</span>
-                    {p.shipRound && <span>รอบ {p.shipRound}</span>}
+                    {lotText !== "—" && (
+                      <span className="break-words max-w-[min(100%,20rem)]">
+                        {lotText}
+                      </span>
+                    )}
                     {p.dueDate && (
                       <span className={p.isOverdue ? "text-red-500 font-semibold" : ""}>
                         ครบกำหนด {formatDueDate(p.dueDate)}
@@ -780,7 +809,8 @@ export default function CheckStatusTab() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
           )}
         </div>
@@ -813,8 +843,8 @@ export default function CheckStatusTab() {
                 <th className="px-5 py-4 text-right text-xs font-semibold text-muted-dark uppercase tracking-wider">
                   โอนมาแล้ว
                 </th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-muted-dark uppercase tracking-wider">
-                  รอบเรือ
+                <th className="px-5 py-4 text-left text-xs font-semibold text-muted-dark uppercase tracking-wider min-w-[8rem] max-w-[14rem]">
+                  LOT
                 </th>
                 <th className="px-5 py-4 text-left text-xs font-semibold text-muted-dark uppercase tracking-wider">
                   ครบกำหนดชำระ
@@ -889,8 +919,8 @@ export default function CheckStatusTab() {
                   <td className="px-5 py-4 text-right text-sm text-sakura-800 font-medium">
                     {p.paid}
                   </td>
-                  <td className="px-5 py-4 text-sm text-muted-dark font-medium">
-                    {p.shipRound ?? "—"}
+                  <td className="px-5 py-4 text-sm text-muted-dark font-medium min-w-[8rem] max-w-[14rem] align-top">
+                    <span className="break-words">{getLotDisplayText(p)}</span>
                   </td>
                   <td className="px-5 py-4 text-sm font-medium">
                     {p.dueDate ? (
