@@ -21,9 +21,9 @@ export async function GET(request: NextRequest) {
   const month = searchParams.get('month')
   const transportType = searchParams.get('transportType')
 
-  const isDomestic = purpose === 'domestic'
+  const purposeOnly = purpose === 'domestic' || purpose === 'wallet'
 
-  if (!isDomestic && (!month || !transportType)) {
+  if (!purposeOnly && (!month || !transportType)) {
     return NextResponse.json(
       {
         success: false,
@@ -33,9 +33,12 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const url = isDomestic
-    ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/slip-status?purpose=domestic`
-    : `${API_URL}${API_ENDUSER_PREFIX}/check-status/slip-status?month=${encodeURIComponent(month!)}&transportType=${encodeURIComponent(transportType!)}`
+  const url =
+    purpose === 'domestic'
+      ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/slip-status?purpose=domestic`
+      : purpose === 'wallet'
+        ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/slip-status?purpose=wallet`
+        : `${API_URL}${API_ENDUSER_PREFIX}/check-status/slip-status?month=${encodeURIComponent(month!)}&transportType=${encodeURIComponent(transportType!)}`
 
   try {
     const res = await fetch(url, {

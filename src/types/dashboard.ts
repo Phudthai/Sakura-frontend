@@ -151,6 +151,8 @@ export type WalletTransactionType =
   | 'PAYMENT'
   | 'REFUND'
   | 'OVERPAYMENT_CREDIT'
+  | 'TOPUP'
+  | 'PAYMENT_DEBIT'
 
 export interface WalletTransaction {
   id: number

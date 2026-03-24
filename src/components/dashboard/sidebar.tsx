@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import {
   Gavel,
   Truck,
-  ClipboardList,
   Wallet,
   UserCircle,
   MapPin,
@@ -16,7 +15,6 @@ import { cn } from '@/lib/utils'
 const MENU_ITEMS = [
   { href: '/dashboard/bids', label: 'My Bids', icon: Gavel },
   { href: '/dashboard/shipments', label: 'Shipments', icon: Truck },
-  { href: '/dashboard/orders', label: 'Order History', icon: ClipboardList },
   { href: '/dashboard/wallet', label: 'My Wallet', icon: Wallet },
   { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
   { href: '/dashboard/addresses', label: 'Addresses', icon: MapPin },
