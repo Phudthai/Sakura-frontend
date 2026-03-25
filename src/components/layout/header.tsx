@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import logoSrc from "@/public/Sakura_logo.png";
 import {
   Bell,
   Globe,
   Menu,
+  X,
   LogOut,
   User,
   ChevronDown,
@@ -32,10 +34,33 @@ interface HeaderProps {
 export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileMenuOpen]);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   const handleLogout = async () => {
     setShowDropdown(false);
+    closeMobileMenu();
     await logout();
     router.push("/login");
   };
@@ -218,33 +243,207 @@ export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
           </div>
 
           {/* Mobile menu button */}
-          <button className="md:hidden p-2 rounded-full hover:bg-sakura-100 transition-colors ml-auto">
-            <Menu className="w-5 h-5" />
+          <button
+            type="button"
+            className="md:hidden p-2 rounded-full hover:bg-sakura-100 transition-colors ml-auto"
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-nav-panel"
+            onClick={() => setMobileMenuOpen((o) => !o)}
+          >
+            {mobileMenuOpen ? (
+              <X className="w-5 h-5" aria-hidden />
+            ) : (
+              <Menu className="w-5 h-5" aria-hidden />
+            )}
           </button>
         </div>
       </div>
+
+      {/* Mobile slide-over — portal to body so tabs/content never paint above it */}
+      {portalReady &&
+        mobileMenuOpen &&
+        createPortal(
+          <div className="md:hidden">
+            <div
+              className="fixed inset-0 z-[200] bg-black/50"
+              aria-hidden
+              onClick={closeMobileMenu}
+            />
+            <div
+              id="mobile-nav-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
+              className="fixed top-0 right-0 z-[210] flex h-[100dvh] w-[min(100%,20rem)] flex-col bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-card-border px-4 py-3">
+                <span className="text-sm font-semibold text-sakura-900">Menu</span>
+                <button
+                  type="button"
+                  onClick={closeMobileMenu}
+                  className="rounded-lg p-2 hover:bg-sakura-100 text-sakura-800"
+                  aria-label="Close menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+                {isLoading ? (
+                  <div className="h-24 rounded-xl bg-sakura-100 animate-pulse" />
+                ) : user ? (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-card-border bg-sakura-50/50 p-3">
+                      <p className="text-sm font-semibold text-sakura-900 truncate">{user.name}</p>
+                      <p className="text-xs text-muted-dark truncate">{user.email}</p>
+                      {user.wallet != null ? (
+                        <Link
+                          href="/dashboard/wallet"
+                          onClick={closeMobileMenu}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sakura-100 px-2.5 py-1 text-xs font-semibold text-sakura-800"
+                        >
+                          <Wallet className="w-3 h-3" />
+                          {user.wallet.balance.toLocaleString()} {user.wallet.currency}
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/dashboard/wallet"
+                          onClick={closeMobileMenu}
+                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-sakura-700 underline"
+                        >
+                          <Wallet className="w-3 h-3" />
+                          เปิดกระเป๋าเงิน / My Wallet
+                        </Link>
+                      )}
+                    </div>
+
+                    <nav className="flex flex-col gap-1">
+                      <Link
+                        href="/dashboard"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sakura-700 hover:bg-sakura-50"
+                      >
+                        <LayoutDashboard className="w-4 h-4 shrink-0" />
+                        Dashboard
+                      </Link>
+                      <Link
+                        href="/dashboard/wallet"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sakura-700 hover:bg-sakura-50"
+                      >
+                        <Wallet className="w-4 h-4 shrink-0" />
+                        My Wallet
+                      </Link>
+                      <Link
+                        href="/dashboard/bids"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sakura-700 hover:bg-sakura-50"
+                      >
+                        <Gavel className="w-4 h-4 shrink-0" />
+                        My Bids
+                      </Link>
+                      <Link
+                        href="/dashboard/shipments"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sakura-700 hover:bg-sakura-50"
+                      >
+                        <Truck className="w-4 h-4 shrink-0" />
+                        Shipments
+                      </Link>
+                      <Link
+                        href="/dashboard/profile"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sakura-700 hover:bg-sakura-50"
+                      >
+                        <User className="w-4 h-4 shrink-0" />
+                        Profile
+                      </Link>
+                      <Link
+                        href="/dashboard/addresses"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sakura-700 hover:bg-sakura-50"
+                      >
+                        <MapPin className="w-4 h-4 shrink-0" />
+                        Addresses
+                      </Link>
+                      <Link
+                        href="/dashboard/notifications"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sakura-700 hover:bg-sakura-50"
+                      >
+                        <Bell className="w-4 h-4 shrink-0" />
+                        Notifications
+                      </Link>
+                    </nav>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign out
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs text-muted-dark">
+                      เข้าสู่ระบบเพื่อดูกระเป๋าเงินและข้อมูลบัญชี
+                    </p>
+                    <Link
+                      href="/login"
+                      onClick={closeMobileMenu}
+                      className="btn-gradient rounded-xl px-4 py-2.5 text-center text-sm font-semibold"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={closeMobileMenu}
+                      className="rounded-xl border border-sakura-400 px-4 py-2.5 text-center text-sm font-medium text-sakura-700 hover:bg-sakura-50"
+                    >
+                      Create account
+                    </Link>
+                  </div>
+                )}
+
+                <div className="mt-6 flex items-center gap-2 border-t border-card-border pt-4 text-sm text-sakura-700">
+                  <Globe className="w-4 h-4" />
+                  <span>English</span>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Tabs - purple space theme, unchanged */}
       {tabs && tabs.length > 0 && (
         <div className="relative overflow-hidden text-white">
           <SpaceBackground />
           <FallingSakura />
-          <div className="relative z-10 border-t border-white/20">
-            <div className="max-w-[1400px] mx-auto px-4 md:px-6 flex">
-              {tabs.map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/?tab=${t.id}`}
-                  className={`px-5 py-3.5 text-sm font-medium border-b-4 transition-all whitespace-nowrap
+          <div className="relative z-10 min-w-0 border-t border-white/20">
+            <div
+              className="max-w-[1400px] mx-auto overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.35)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/30"
+            >
+              <nav className="flex w-max min-w-full flex-nowrap px-4 md:px-6">
+                {tabs.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/?tab=${t.id}`}
+                    className={`shrink-0 px-4 sm:px-5 py-3.5 text-sm font-medium border-b-4 transition-all whitespace-nowrap
                   ${
                     currentTab === t.id
                       ? "border-white text-white bg-white/15 font-semibold"
                       : "border-transparent text-white/70 hover:text-white hover:border-white/40 hover:bg-white/5"
                   }`}
-                >
-                  {t.label}
-                </Link>
-              ))}
+                  >
+                    {t.label}
+                  </Link>
+                ))}
+              </nav>
             </div>
           </div>
         </div>

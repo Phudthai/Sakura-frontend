@@ -10,7 +10,7 @@ import {
   Calendar,
   Upload,
 } from "lucide-react";
-import { formatJPY } from "@/lib/utils";
+import { formatJPY, formatTHB } from "@/lib/utils";
 import { API_ENDUSER_PREFIX } from "@/lib/api-config";
 import { UploadSlipModal } from "@/components/check-status/upload-slip-modal";
 
@@ -38,13 +38,15 @@ function MonthSelect({
   }, []);
 
   return (
-    <div ref={ref} className="relative flex-1 min-w-0">
+    <div ref={ref} className="relative w-full min-w-0 md:flex-1">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-2 py-1.5 pr-1 text-sakura-900 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-sakura-300 rounded-lg"
       >
-        <span className="flex-1 text-center">{value}</span>
+        <span className="flex-1 text-center max-md:whitespace-nowrap min-w-0 md:min-w-[unset]">
+          {value}
+        </span>
         <ChevronDown
           className={`w-5 h-5 text-sakura-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
         />
@@ -503,16 +505,20 @@ export default function CheckStatusTab() {
             <p className="text-xs font-medium text-muted-dark mb-3">
               1. เลือกเดือน
             </p>
-            <div className="flex items-center gap-2 p-2 rounded-xl border border-sakura-200/80 bg-white hover:border-sakura-300/80 transition-colors overflow-visible">
-              <Calendar className="w-4 h-4 text-sakura-600 shrink-0" />
-              <span className="text-xs font-medium text-sakura-700 shrink-0">
-                เลือกเดือน
-              </span>
-              <MonthSelect
-                value={selectedMonth}
-                options={months}
-                onChange={setSelectedMonth}
-              />
+            <div className="flex flex-col gap-2 p-2 rounded-xl border border-sakura-200/80 bg-white hover:border-sakura-300/80 transition-colors overflow-visible">
+              <div className="flex items-center gap-2 shrink-0">
+                <Calendar className="w-4 h-4 text-sakura-600 shrink-0" />
+                <span className="text-xs font-medium text-sakura-700 shrink-0">
+                  เลือกเดือน
+                </span>
+              </div>
+              <div className="w-full min-w-0">
+                <MonthSelect
+                  value={selectedMonth}
+                  options={months}
+                  onChange={setSelectedMonth}
+                />
+              </div>
             </div>
           </div>
           <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1 min-w-0">
@@ -746,66 +752,94 @@ export default function CheckStatusTab() {
             </h4>
           </div>
           {loading ? (
-            <div className="divide-y divide-sakura-100">
+            <div className="space-y-3 p-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="p-4 flex gap-3">
-                  <div className="skeleton-shimmer w-14 h-14 rounded-xl shrink-0" />
-                  <div className="flex-1 space-y-2 pt-1">
-                    <div className="skeleton-shimmer h-3.5 w-3/4 rounded" />
-                    <div className="skeleton-shimmer h-3.5 w-1/2 rounded" />
-                    <div className="skeleton-shimmer h-3 w-1/3 rounded" />
+                <div
+                  key={i}
+                  className="space-y-3 rounded-xl border border-sakura-200/80 bg-white p-4 shadow-sm"
+                >
+                  <div className="space-y-2">
+                    <div className="skeleton-shimmer h-3.5 w-full rounded-lg" />
+                    <div className="skeleton-shimmer h-3.5 w-2/3 rounded-lg" />
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex w-8 shrink-0 flex-col items-center gap-1.5">
+                      <div className="skeleton-shimmer h-3 w-3 rounded" />
+                      <div className="skeleton-shimmer h-5 w-5 rounded" />
+                    </div>
+                    <div className="skeleton-shimmer h-14 w-14 shrink-0 rounded-xl" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="skeleton-shimmer h-3 w-full rounded" />
+                      <div className="skeleton-shimmer h-3 w-full rounded" />
+                      <div className="skeleton-shimmer h-3 w-4/5 rounded" />
+                      <div className="skeleton-shimmer h-3 w-3/5 rounded" />
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-          <div className="divide-y divide-sakura-100">
+          <div className="space-y-3 p-3">
             {products.map((p, i) => {
               const lotText = getLotDisplayText(p);
               return (
               <div
                 key={p.id}
-                className={`p-4 flex gap-3 ${
+                className={`space-y-3 rounded-xl border p-4 shadow-sm ${
                   p.isOverdue
-                    ? "bg-red-50/50"
+                    ? "border-red-200/70 bg-red-50/90"
                     : p.arrivedAtJapan
-                    ? "bg-emerald-50/50"
-                    : "bg-white"
+                    ? "border-emerald-200/70 bg-emerald-50/90"
+                    : "border-sakura-200/90 bg-white"
                 }`}
               >
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-sakura-100 relative shrink-0">
-                  <Image
-                    src={p.imageUrl}
-                    alt={p.name}
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                    unoptimized
-                  />
+                <div className="min-w-0 border-b border-sakura-100/80 pb-3">
+                  <span className="text-sm font-medium leading-snug text-sakura-900 line-clamp-2">
+                    {p.name}
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start gap-2 mb-1">
-                    {p.arrivedAtJapan && <CheckboxTick size="sm" />}
-                    <span className="text-sm font-medium text-sakura-900 line-clamp-2 flex-1">
-                      {p.name}
-                    </span>
+                <div className="flex gap-3">
+                  <div className="flex w-8 shrink-0 flex-col items-center gap-1.5">
+                    <span className="text-xs tabular-nums text-muted-dark">{i + 1}</span>
+                    <div className="flex h-5 w-5 items-center justify-center">
+                      {p.arrivedAtJapan ? <CheckboxTick size="sm" /> : null}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-dark">
-                    <span>{formatJPY(p.yen)}</span>
-                    <span>{p.baht.toLocaleString("th-TH")} บาท</span>
-                    <span>{p.grams}g</span>
-                    <span>ส่งญี่ปุ่น {p.shipShippingCost}</span>
-                    <span>โอน {p.paid}</span>
-                    {lotText !== "—" && (
-                      <span className="break-words max-w-[min(100%,20rem)]">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-sakura-100">
+                    <Image
+                      src={p.imageUrl}
+                      alt={p.name}
+                      fill
+                      className="object-cover"
+                      sizes="56px"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <span className="shrink-0 text-muted-dark">ราคา</span>
+                      <span className="text-right font-semibold tabular-nums text-sakura-900">
+                        ฿{p.baht.toLocaleString("th-TH")}({formatJPY(p.yen)})
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="shrink-0 text-muted-dark">ค่าส่งเรือ</span>
+                      <span className="text-right font-medium tabular-nums text-sakura-800">
+                        {formatTHB(p.shipShippingCost)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="shrink-0 text-muted-dark">LOT</span>
+                      <span className="min-w-0 break-words text-right font-medium text-sakura-800">
                         {lotText}
                       </span>
-                    )}
-                    {p.dueDate && (
-                      <span className={p.isOverdue ? "text-red-500 font-semibold" : ""}>
-                        ครบกำหนด {formatDueDate(p.dueDate)}
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="shrink-0 text-muted-dark">กี่กรัม</span>
+                      <span className="text-right font-medium tabular-nums text-sakura-800">
+                        {p.grams}
                       </span>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
