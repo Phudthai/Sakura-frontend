@@ -6,6 +6,10 @@ import Link from "next/link";
 import { Package, Upload } from "lucide-react";
 import { API_ENDUSER_PREFIX } from "@/lib/api-config";
 import { UploadSlipModal } from "@/components/check-status/upload-slip-modal";
+import { parseShippingAddressList } from "@/lib/shipping-address";
+import { cn } from "@/lib/utils";
+import type { ShippingAddressApi } from "@/types/dashboard";
+import { sortAddressesForDisplay } from "@/types/dashboard";
 
 type SlipStatus = {
   status: "PENDING_VERIFICATION" | "CONFIRMED" | "REJECTED";
@@ -83,6 +87,9 @@ export default function DomesticPendingTab() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [shippingList, setShippingList] = useState<ShippingAddressApi[]>([]);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -155,14 +162,59 @@ export default function DomesticPendingTab() {
     }
   }, [loading, error, data, baht, fetchSlipStatus]);
 
+  const fetchShippingAddresses = useCallback(async () => {
+    setShippingLoading(true);
+    try {
+      const res = await fetch(`${API_ENDUSER_PREFIX}/shipping-addresses`);
+      const json = await res.json();
+      if (!res.ok) {
+        setShippingList([]);
+        setSelectedAddressId(null);
+        return;
+      }
+      const raw = parseShippingAddressList(json);
+      const sorted = sortAddressesForDisplay(
+        raw.map((a) => ({
+          id: String(a.id),
+          isDefault: a.isDefault,
+          api: a,
+        }))
+      ).map((x) => x.api);
+      setShippingList(sorted);
+      const def = sorted.find((a) => a.isDefault);
+      setSelectedAddressId(
+        def ? String(def.id) : sorted[0] ? String(sorted[0].id) : null
+      );
+    } catch {
+      setShippingList([]);
+      setSelectedAddressId(null);
+    } finally {
+      setShippingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (baht <= 0 || loading || error) return;
+    fetchShippingAddresses();
+  }, [baht, loading, error, fetchShippingAddresses]);
+
   const handleSubmitSlip = async (file: File) => {
     setUploadError(null);
     setUploadLoading(true);
     try {
+      if (!selectedAddressId) {
+        setUploadError("กรุณาเลือกที่อยู่จัดส่ง");
+        setUploadLoading(false);
+        return;
+      }
       const formData = new FormData();
       formData.append("slip", file);
+      const q = new URLSearchParams({
+        purpose: "domestic",
+        addressId: selectedAddressId,
+      });
       const res = await fetch(
-        `${API_ENDUSER_PREFIX}/check-status/submit-slip?purpose=domestic`,
+        `${API_ENDUSER_PREFIX}/check-status/submit-slip?${q}`,
         {
           method: "POST",
           body: formData,
@@ -191,6 +243,11 @@ export default function DomesticPendingTab() {
           load();
         } else if (res.status === 401) {
           setUploadError("กรุณาเข้าสู่ระบบ");
+        } else if (code === "MISSING_ADDRESS_ID") {
+          setUploadError("กรุณาเลือกที่อยู่จัดส่ง");
+        } else if (code === "INVALID_ADDRESS_ID") {
+          setUploadError("ที่อยู่ไม่ถูกต้อง กรุณาเลือกใหม่หรือบันทึกที่อยู่ใหม่");
+          fetchShippingAddresses();
         } else {
           setUploadError(msg);
         }
@@ -299,7 +356,7 @@ export default function DomesticPendingTab() {
 
             {/* อัพโหลดสลิปจัดส่งในไทย — เมื่อยอดที่ต้องชำระ > 0 */}
             {baht > 0 && !loading && (
-              <div className="border-t border-sakura-100 px-4 sm:px-6 md:px-8 py-4 sm:py-5">
+              <div className="border-t border-sakura-100 px-4 sm:px-6 md:px-8 py-4 sm:py-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   {slipStatusLabel && (
                     <p
@@ -314,13 +371,77 @@ export default function DomesticPendingTab() {
                       สถานะสลิป (จัดส่งในไทย): {slipStatusLabel}
                     </p>
                   )}
+                </div>
+
+                <div className="rounded-xl border border-sakura-100 bg-sakura-50/40 p-4 space-y-3">
+                  <p className="text-sm font-semibold text-sakura-900">
+                    เลือกที่อยู่จัดส่ง (ใช้กับสลิปค่าจัดส่งในไทย)
+                  </p>
+                  {shippingLoading ? (
+                    <p className="text-sm text-muted-dark">กำลังโหลดที่อยู่...</p>
+                  ) : shippingList.length === 0 ? (
+                    <div className="text-sm text-sakura-800 space-y-2">
+                      <p>ยังไม่มีที่อยู่จัดส่ง กรุณาเพิ่มที่อยู่ก่อนอัปโหลดสลิป</p>
+                      <Link
+                        href="/dashboard/addresses"
+                        className="inline-flex font-semibold text-sakura-700 hover:underline"
+                      >
+                        ไปเพิ่มที่อยู่จัดส่ง
+                      </Link>
+                    </div>
+                  ) : (
+                    <ul className="space-y-2 max-h-48 overflow-y-auto">
+                      {shippingList.map((a) => {
+                        const id = String(a.id);
+                        const sub = [a.addressLine1, a.addressLine2].filter(Boolean).join(", ");
+                        return (
+                          <li key={id}>
+                            <label
+                              className={cn(
+                                "flex items-start gap-3 cursor-pointer rounded-lg p-2 border",
+                                selectedAddressId === id
+                                  ? "border-sakura-300 bg-white"
+                                  : "border-transparent hover:bg-white/80"
+                              )}
+                            >
+                              <input
+                                type="radio"
+                                name="domestic-ship-addr"
+                                className="mt-1"
+                                checked={selectedAddressId === id}
+                                onChange={() => setSelectedAddressId(id)}
+                              />
+                              <span className="text-sm text-sakura-900 min-w-0">
+                                <span className="font-semibold">{a.recipientName}</span>
+                                {a.label ? (
+                                  <span className="text-muted-dark font-normal"> ({a.label})</span>
+                                ) : null}
+                                <span className="block text-muted-dark mt-0.5">{sub}</span>
+                                <span className="block text-xs text-muted-dark mt-0.5">
+                                  {a.subdistrict}, {a.district}, {a.province} {a.postalCode}
+                                </span>
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="flex justify-end">
                   <button
                     type="button"
+                    disabled={
+                      shippingLoading ||
+                      shippingList.length === 0 ||
+                      !selectedAddressId
+                    }
                     onClick={() => {
                       setUploadError(null);
                       setUploadModalOpen(true);
                     }}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sakura-700 text-white font-semibold hover:bg-sakura-800 transition-colors"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sakura-700 text-white font-semibold hover:bg-sakura-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Upload className="w-4 h-4" />
                     อัพโหลดสลิปโอนเงิน

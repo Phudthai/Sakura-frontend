@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, CheckCircle, Save, Shield, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { Eye, EyeOff, CheckCircle, Save, Shield, Loader2, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AuthUser } from '@/context/auth-context'
 
@@ -54,6 +55,24 @@ export default function ProfileForm({ user }: ProfileFormProps) {
 
   return (
     <div className="space-y-6">
+      <div className="bg-white rounded-2xl border border-card-border shadow-card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sakura-100 flex items-center justify-center shrink-0">
+            <MapPin className="w-5 h-5 text-sakura-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-sakura-900">ที่อยู่จัดส่ง</h2>
+            <p className="text-sm text-muted">จัดการที่อยู่สำหรับจัดส่งสินค้าในไทยและอัปโหลดสลิปค่าจัดส่ง</p>
+          </div>
+        </div>
+        <Link
+          href="/dashboard/addresses"
+          className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-sakura-700 text-white text-sm font-semibold hover:bg-sakura-800 transition-colors shrink-0"
+        >
+          จัดการที่อยู่
+        </Link>
+      </div>
+
       {/* ---- User info card ---- */}
       <div className="bg-white rounded-2xl border border-card-border shadow-card p-5 space-y-4">
         <h2 className="text-lg font-bold text-sakura-900">Account Information</h2>

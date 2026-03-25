@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
   const purpose = searchParams.get('purpose')
   const month = searchParams.get('month')
   const transportType = searchParams.get('transportType')
+  const addressId = searchParams.get('addressId')
 
   const purposeOnly = purpose === 'domestic' || purpose === 'wallet'
 
@@ -49,9 +50,14 @@ export async function POST(request: NextRequest) {
   const backendFormData = new FormData()
   backendFormData.append('slip', slip)
 
+  const domesticQuery =
+    addressId != null && addressId !== ''
+      ? `purpose=domestic&addressId=${encodeURIComponent(addressId)}`
+      : 'purpose=domestic'
+
   const url =
     purpose === 'domestic'
-      ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/submit-slip?purpose=domestic`
+      ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/submit-slip?${domesticQuery}`
       : purpose === 'wallet'
         ? `${API_URL}${API_ENDUSER_PREFIX}/check-status/submit-slip?purpose=wallet`
         : `${API_URL}${API_ENDUSER_PREFIX}/check-status/submit-slip?month=${encodeURIComponent(month!)}&transportType=${encodeURIComponent(transportType!)}`

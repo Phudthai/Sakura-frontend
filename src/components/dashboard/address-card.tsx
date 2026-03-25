@@ -8,9 +8,10 @@ interface AddressCardProps {
   address: UserAddress
   onEdit?: (id: string) => void
   onDelete?: (id: string) => void
+  onSetDefault?: (id: string) => void
 }
 
-export default function AddressCard({ address, onEdit, onDelete }: AddressCardProps) {
+export default function AddressCard({ address, onEdit, onDelete, onSetDefault }: AddressCardProps) {
   return (
     <div
       className={cn(
@@ -31,6 +32,10 @@ export default function AddressCard({ address, onEdit, onDelete }: AddressCardPr
         <p className="text-sm font-bold text-sakura-900 mb-1">{address.label}</p>
       )}
 
+      {address.recipientName && (
+        <p className="text-sm font-semibold text-sakura-900 mb-1">{address.recipientName}</p>
+      )}
+
       {/* Address */}
       <div className="flex items-start gap-2 text-sm text-sakura-800">
         <MapPin className="w-4 h-4 text-sakura-400 shrink-0 mt-0.5" />
@@ -49,23 +54,33 @@ export default function AddressCard({ address, onEdit, onDelete }: AddressCardPr
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-card-border">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 pt-3 border-t border-card-border">
         <button
+          type="button"
           onClick={() => onEdit?.(address.id)}
           className="flex items-center gap-1.5 text-xs font-medium text-sakura-600 hover:text-sakura-800 transition-colors"
         >
           <Pencil className="w-3.5 h-3.5" />
           Edit
         </button>
-        {!address.isDefault && (
+        {!address.isDefault && onSetDefault && (
           <button
-            onClick={() => onDelete?.(address.id)}
-            className="flex items-center gap-1.5 text-xs font-medium text-red-400 hover:text-red-600 transition-colors ml-3"
+            type="button"
+            onClick={() => onSetDefault(address.id)}
+            className="flex items-center gap-1.5 text-xs font-medium text-sakura-500 hover:text-sakura-700 transition-colors"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            Delete
+            <Star className="w-3.5 h-3.5" />
+            Set default
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => onDelete?.(address.id)}
+          className="flex items-center gap-1.5 text-xs font-medium text-red-400 hover:text-red-600 transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Delete
+        </button>
       </div>
     </div>
   )

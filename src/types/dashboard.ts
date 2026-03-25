@@ -108,15 +108,76 @@ export interface UserOrder {
 // Addresses
 // ---------------------------------------------------------------------------
 
+/** Shape from GET/POST/PATCH `/api/enduser/shipping-addresses` */
+export interface ShippingAddressApi {
+  id: number | string
+  recipientName: string
+  addressLine1: string
+  addressLine2?: string | null
+  subdistrict: string
+  district: string
+  province: string
+  postalCode: string
+  label?: string | null
+  phone?: string | null
+  country?: string | null
+  isDefault: boolean
+}
+
+export interface ShippingAddressCreateBody {
+  recipientName: string
+  addressLine1: string
+  subdistrict: string
+  district: string
+  province: string
+  postalCode: string
+  label?: string
+  phone?: string
+  addressLine2?: string
+  country?: string
+  isDefault?: boolean
+}
+
+export type ShippingAddressPatchBody = Partial<ShippingAddressCreateBody>
+
 export interface UserAddress {
   id: string
   label?: string
+  /** ชื่อผู้รับ — จาก API */
+  recipientName?: string
   fullAddress: string
   province: string
   district: string
   postalCode: string
   phone: string
   isDefault: boolean
+}
+
+export function shippingAddressToUserAddress(a: ShippingAddressApi): UserAddress {
+  const line1 = [a.addressLine1, a.addressLine2].filter(Boolean).join(', ')
+  const districtLine = a.subdistrict ? `${a.subdistrict}, ${a.district}` : a.district
+  return {
+    id: String(a.id),
+    label: a.label ?? undefined,
+    recipientName: a.recipientName,
+    fullAddress: line1,
+    province: a.province,
+    district: districtLine,
+    postalCode: a.postalCode,
+    phone: a.phone ?? '',
+    isDefault: Boolean(a.isDefault),
+  }
+}
+
+/** เรียง default ก่อน แล้วตาม id */
+export function sortAddressesForDisplay<T extends { isDefault?: boolean; id: string }>(
+  list: T[]
+): T[] {
+  return [...list].sort((x, y) => {
+    if (x.isDefault && !y.isDefault) return -1
+    if (!x.isDefault && y.isDefault) return 1
+    return x.id.localeCompare(y.id, undefined, { numeric: true })
+  })
 }
 
 // ---------------------------------------------------------------------------
