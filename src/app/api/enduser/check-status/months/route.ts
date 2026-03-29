@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAuthCookie } from '@/lib/auth'
 import { API_ENDUSER_PREFIX } from '@/lib/api-config'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const token = getAuthCookie()
   if (!token) {
     return NextResponse.json(
@@ -16,7 +16,14 @@ export async function GET() {
     )
   }
 
-  const url = `${API_URL}${API_ENDUSER_PREFIX}/check-status/months`
+  const purchaseMode = request.nextUrl.searchParams.get('purchase_mode')
+  const qs = new URLSearchParams()
+  if (purchaseMode != null && purchaseMode !== '') {
+    qs.set('purchase_mode', purchaseMode)
+  }
+  const query = qs.toString()
+
+  const url = `${API_URL}${API_ENDUSER_PREFIX}/check-status/months${query ? `?${query}` : ''}`
 
   try {
     const res = await fetch(url, {

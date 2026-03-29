@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const month = searchParams.get('month')
   const transportType = searchParams.get('transportType')
+  const purchaseMode = searchParams.get('purchase_mode')
 
   if (!month || !transportType) {
     return NextResponse.json(
@@ -30,7 +31,15 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const url = `${API_URL}${API_ENDUSER_PREFIX}/check-status?month=${encodeURIComponent(month)}&transportType=${encodeURIComponent(transportType)}`
+  const qs = new URLSearchParams({
+    month,
+    transportType,
+  })
+  if (purchaseMode != null && purchaseMode !== '') {
+    qs.set('purchase_mode', purchaseMode)
+  }
+
+  const url = `${API_URL}${API_ENDUSER_PREFIX}/check-status?${qs}`
 
   try {
     const res = await fetch(url, {

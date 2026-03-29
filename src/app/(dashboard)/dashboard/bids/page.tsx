@@ -14,7 +14,9 @@ const TABS = [
 ]
 
 async function loadAuctions(status: 'pending' | 'completed'): Promise<TrackedAuction[]> {
-  const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests?status=${status}&limit=50`)
+  const res = await fetch(
+    `${API_ENDUSER_PREFIX}/auction-requests?status=${status}&limit=50&purchase_mode=AUCTION`,
+  )
   const json = await res.json()
   if (!res.ok || !json.success) return []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

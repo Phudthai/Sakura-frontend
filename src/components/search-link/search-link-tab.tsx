@@ -37,7 +37,9 @@ export { BID_STATUS };
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function loadPendingAuctions(): Promise<TrackedAuction[]> {
-  const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests?status=pending&limit=50`);
+  const res = await fetch(
+    `${API_ENDUSER_PREFIX}/auction-requests?status=pending&limit=50&purchase_mode=AUCTION`,
+  );
   const json = await res.json();
   if (!res.ok || !json.success)
     throw new Error(json.error?.message ?? "โหลดข้อมูลไม่สำเร็จ");
@@ -78,7 +80,11 @@ async function submitToBackend(
   firstBidPrice?: number,
   intlShippingType?: string,
 ): Promise<{ id: number; data: AuctionData; lastBid?: LastBid }> {
-  const body: Record<string, unknown> = { url, firstBidPrice };
+  const body: Record<string, unknown> = {
+    url,
+    firstBidPrice,
+    purchase_mode: "AUCTION",
+  };
   if (intlShippingType) body.intl_shipping_type = intlShippingType;
 
   const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests`, {

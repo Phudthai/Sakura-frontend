@@ -114,13 +114,27 @@ type CheckStatusProduct = {
   isOverdue: boolean;
 };
 
+/** ตรงกับ query purchase_mode: ไม่ส่งหรือ all = ทุกโหมด */
+type PurchaseModeFilter = "all" | "AUCTION" | "BUYOUT";
+
 type CheckStatusData = {
   month: string;
   transportType: string;
+  /** สะท้อน scope ที่ API ใช้กรอง (เช่น all / AUCTION / BUYOUT) */
+  purchaseMode?: string;
   user?: { username: string; customerId: string };
   summary: { totalBaht: number; paid: number; outstanding: number };
   products: CheckStatusProduct[];
 };
+
+function appendPurchaseMode(
+  params: URLSearchParams,
+  mode: PurchaseModeFilter,
+) {
+  if (mode !== "all") {
+    params.set("purchase_mode", mode);
+  }
+}
 
 // Mock data จาก reference - เรือ
 const MOCK_PRODUCTS_SHIP: CheckStatusProduct[] = [
@@ -336,6 +350,7 @@ function mapApiProduct(p: Record<string, unknown>): CheckStatusProduct {
 export default function CheckStatusTab() {
   const [selectedMonth, setSelectedMonth] = useState<string>(DEFAULT_MONTHS[0]);
   const [transportType, setTransportType] = useState<TransportType>("airplane");
+  const [purchaseMode, setPurchaseMode] = useState<PurchaseModeFilter>("all");
   const [months, setMonths] = useState<string[]>(DEFAULT_MONTHS);
   const [apiData, setApiData] = useState<CheckStatusData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -346,19 +361,26 @@ export default function CheckStatusTab() {
 
   const fetchMonths = useCallback(async () => {
     try {
-      const res = await fetch(`${API_ENDUSER_PREFIX}/check-status/months`);
+      const params = new URLSearchParams();
+      appendPurchaseMode(params, purchaseMode);
+      const qs = params.toString();
+      const res = await fetch(
+        `${API_ENDUSER_PREFIX}/check-status/months${qs ? `?${qs}` : ""}`,
+      );
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data?.months)) {
         const newMonths = json.data.months.map(String);
         setMonths(newMonths);
         if (newMonths.length > 0) {
-          setSelectedMonth(newMonths[0]);
+          setSelectedMonth((prev) =>
+            newMonths.includes(prev) ? prev : newMonths[0],
+          );
         }
       }
     } catch {
       // ใช้ DEFAULT_MONTHS
     }
-  }, []);
+  }, [purchaseMode]);
 
   const fetchCheckStatus = useCallback(async () => {
     setLoading(true);
@@ -367,6 +389,7 @@ export default function CheckStatusTab() {
         month: selectedMonth,
         transportType,
       });
+      appendPurchaseMode(params, purchaseMode);
       const res = await fetch(
         `${API_ENDUSER_PREFIX}/check-status?${params}`
       );
@@ -380,6 +403,8 @@ export default function CheckStatusTab() {
         setApiData({
           month: String(d.month ?? selectedMonth),
           transportType: String(d.transportType ?? transportType),
+          purchaseMode:
+            d.purchaseMode != null ? String(d.purchaseMode) : undefined,
           user: d.user,
           summary: {
             totalBaht: Number(summary.totalBaht ?? 0),
@@ -396,7 +421,7 @@ export default function CheckStatusTab() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth, transportType]);
+  }, [selectedMonth, transportType, purchaseMode]);
 
   useEffect(() => {
     fetchMonths();
@@ -547,6 +572,30 @@ export default function CheckStatusTab() {
             </div>
           </div>
         </div>
+        <div className="px-4 pb-4 border-t border-sakura-100">
+          <p className="text-xs font-medium text-muted-dark pt-3 mb-2">
+            โหมดการซื้อ
+          </p>
+          <div className="flex gap-1.5">
+            {(
+              [
+                ["all", "ทั้งหมด"],
+                ["AUCTION", "ประมูล"],
+                ["BUYOUT", "ซื้อขาด"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setPurchaseMode(mode)}
+                className={`flex-1 min-w-0 px-2 py-2 rounded-xl text-xs font-semibold transition-all touch-manipulation
+                  ${purchaseMode === mode ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       {/* การ์ด 2: ผู้ใช้งาน (มือถือเท่านั้น) */}
       <div className="md:hidden bg-white rounded-xl sm:rounded-2xl border border-card-border shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-hidden">
@@ -569,46 +618,72 @@ export default function CheckStatusTab() {
       {/* PC: กรอบเดียว - ซ้าย=เลือกเดือน+จัดส่ง | ขวา=ผู้ใช้งาน */}
       <div className="hidden md:block mt-4 sm:mt-6 bg-white rounded-xl sm:rounded-2xl border border-card-border shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-visible">
         <div className="flex flex-row md:gap-0 p-4 sm:p-4">
-          <div className="flex flex-row gap-3 flex-1 pr-6 border-r border-sakura-200/80">
-            <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1 overflow-visible">
-              <p className="text-xs font-medium text-muted-dark mb-3">
-                1. เลือกเดือน
-              </p>
-              <div className="flex items-center gap-3 p-3 rounded-xl border border-sakura-200/80 bg-white hover:border-sakura-300/80 transition-colors overflow-visible">
-                <Calendar className="w-5 h-5 text-sakura-600 shrink-0" />
-                <span className="text-sm font-medium text-sakura-700 shrink-0">
-                  เลือกเดือน
-                </span>
-                <MonthSelect
-                  value={selectedMonth}
-                  options={months}
-                  onChange={setSelectedMonth}
-                />
+          <div className="flex flex-col gap-3 flex-1 pr-6 border-r border-sakura-200/80">
+            <div className="flex flex-row gap-3">
+              <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1 overflow-visible">
+                <p className="text-xs font-medium text-muted-dark mb-3">
+                  1. เลือกเดือน
+                </p>
+                <div className="flex items-center gap-3 p-3 rounded-xl border border-sakura-200/80 bg-white hover:border-sakura-300/80 transition-colors overflow-visible">
+                  <Calendar className="w-5 h-5 text-sakura-600 shrink-0" />
+                  <span className="text-sm font-medium text-sakura-700 shrink-0">
+                    เลือกเดือน
+                  </span>
+                  <MonthSelect
+                    value={selectedMonth}
+                    options={months}
+                    onChange={setSelectedMonth}
+                  />
+                </div>
+              </div>
+              <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1">
+                <p className="text-xs font-medium text-muted-dark mb-3">
+                  2. ประเภทการส่ง
+                </p>
+                <div className="flex flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransportType("airplane")}
+                    className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
+              ${transportType === "airplane" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
+                  >
+                    <Plane className="w-5 h-5 shrink-0" />
+                    เครื่องบิน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransportType("ship")}
+                    className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
+              ${transportType === "ship" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
+                  >
+                    <Ship className="w-5 h-5 shrink-0" />
+                    เรือ
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4 flex-1">
+            <div className="rounded-xl border border-sakura-200/80 bg-sakura-50/30 p-4">
               <p className="text-xs font-medium text-muted-dark mb-3">
-                2. ประเภทการส่ง
+                3. โหมดการซื้อ
               </p>
               <div className="flex flex-row gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTransportType("airplane")}
-                  className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
-              ${transportType === "airplane" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
-                >
-                  <Plane className="w-5 h-5 shrink-0" />
-                  เครื่องบิน
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTransportType("ship")}
-                  className={`flex items-center justify-center gap-2.5 flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
-              ${transportType === "ship" ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
-                >
-                  <Ship className="w-5 h-5 shrink-0" />
-                  เรือ
-                </button>
+                {(
+                  [
+                    ["all", "ทั้งหมด"],
+                    ["AUCTION", "ประมูล"],
+                    ["BUYOUT", "ซื้อขาด"],
+                  ] as const
+                ).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setPurchaseMode(mode)}
+                    className={`flex items-center justify-center gap-2 flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+              ${purchaseMode === mode ? "bg-sakura-700 text-white shadow-md" : "bg-sakura-50 text-muted-dark hover:bg-sakura-100 hover:text-sakura-800 border border-sakura-200/60"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
