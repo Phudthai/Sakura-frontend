@@ -3,7 +3,7 @@ import { proxyToBackend } from '@/lib/api-proxy'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const body = await request.json()
-  return proxyToBackend(request, `/auction-requests/${params.id}`, {
+  return proxyToBackend(request, `/purchase-requests/${params.id}`, {
     method: 'PATCH',
     body,
     requireAuth: true,

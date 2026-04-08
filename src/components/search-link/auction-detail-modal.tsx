@@ -23,7 +23,7 @@ interface PriceLog {
 
 async function fetchPriceLogs(auctionId: number): Promise<PriceLog[]> {
   try {
-    const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests/${auctionId}/price-logs`)
+    const res = await fetch(`${API_ENDUSER_PREFIX}/purchase-requests/${auctionId}/price-logs`)
     const json = await res.json()
     if (!res.ok) return []
     const logs = json.data?.logs ?? json.data ?? []

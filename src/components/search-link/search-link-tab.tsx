@@ -38,7 +38,7 @@ export { BID_STATUS };
 
 async function loadPendingAuctions(): Promise<TrackedAuction[]> {
   const res = await fetch(
-    `${API_ENDUSER_PREFIX}/auction-requests?status=pending&limit=50&purchase_mode=AUCTION`,
+    `${API_ENDUSER_PREFIX}/purchase-requests?status=pending&limit=50&purchase_mode=AUCTION`,
   );
   const json = await res.json();
   if (!res.ok || !json.success)
@@ -87,7 +87,7 @@ async function submitToBackend(
   };
   if (intlShippingType) body.intl_shipping_type = intlShippingType;
 
-  const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests`, {
+  const res = await fetch(`${API_ENDUSER_PREFIX}/purchase-requests`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -487,7 +487,7 @@ export default function SearchLinkTab() {
   const handleMock = useCallback(
     async (auctionId: number, action: "outbid" | "end-time") => {
       try {
-        await fetch(`${API_ENDUSER_PREFIX}/auction-requests/${auctionId}/mock`, {
+        await fetch(`${API_ENDUSER_PREFIX}/purchase-requests/${auctionId}/mock`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
@@ -502,7 +502,7 @@ export default function SearchLinkTab() {
   const handleBidSubmit = useCallback(
     async (auctionId: number, amount: number) => {
       try {
-        const res = await fetch(`${API_ENDUSER_PREFIX}/auction-requests/${auctionId}/bids`, {
+        const res = await fetch(`${API_ENDUSER_PREFIX}/purchase-requests/${auctionId}/bids`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ price: amount }),
