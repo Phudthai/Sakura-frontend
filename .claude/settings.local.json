@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(curl -s -X POST http://localhost:3000/api/auction/fetch -H \"Content-Type: application/json\" -d '{\"\"url\"\":\"\"https://auctions.yahoo.co.jp/jp/auction/x1222069290\"\"}')",
-      "Bash(\"c:/Users/User/Sakura-frontend/src/app/api/auction-requests/[id]/bids/route.ts\":*)"
-    ]
-  }
-}
