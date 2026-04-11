@@ -8,8 +8,10 @@ import SearchLinkTab, {
 } from "@/components/search-link/search-link-tab";
 import CheckStatusTab from "@/components/check-status/check-status-tab";
 import DomesticPendingTab from "@/components/check-status/domestic-pending-tab";
+import HomeTab from "@/components/home/home-tab";
 
 const TABS = [
+  { id: "home", label: "หน้าแรก" },
   { id: "check_status", label: "เช็คสถานะสินค้า" },
   { id: "domestic_pending", label: "สินค้าที่รอจัดส่งในไทย" },
   { id: "search_link", label: "ประมูลด้วยตนเอง" },
@@ -19,7 +21,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 function HomeContent() {
   const searchParams = useSearchParams();
-  const tab = (searchParams.get("tab") as TabId) ?? "check_status";
+  const tab = (searchParams.get("tab") as TabId) ?? "home";
   const platform: AuctionPlatform =
     searchParams.get("platform") === "mercari" ? "mercari" : "yahoo";
 
@@ -31,6 +33,9 @@ function HomeContent() {
         currentTab={tab}
         auctionPlatformMenuKey={`${tab}-${platform}`}
       />
+
+      {/* Tab: home */}
+      {tab === "home" && <HomeTab />}
 
       {/* Tab: check_status */}
       {tab === "check_status" && <CheckStatusTab />}
