@@ -3,6 +3,7 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useRef,
   useCallback,
   type FormEvent,
@@ -23,9 +24,12 @@ import {
   ChevronDown,
   ChevronUp,
   Gavel,
+  X,
+  HelpCircle,
 } from "lucide-react";
 import AuctionDetailModal from "./auction-detail-modal";
 import BidModal from "./bid-modal";
+import mercariHero from "../../../assets/mercari.png";
 import type { AuctionData, TrackedAuction, LastBid } from "@/types/auction";
 import { BID_STATUS } from "@/types/auction";
 import { formatJPY, formatTime, getHostname } from "@/lib/utils";
@@ -33,6 +37,8 @@ import { API_ENDUSER_PREFIX } from "@/lib/api-config";
 
 export type { AuctionData, TrackedAuction, LastBid };
 export { BID_STATUS };
+
+export type AuctionPlatform = "yahoo" | "mercari";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -417,7 +423,79 @@ function AuctionCard({
 
 const POLL_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
 
-export default function SearchLinkTab() {
+const MERCARI_GUIDE_STORAGE_KEY = "sakura-mercari-guide-dismissed";
+
+function MercariGuideModal({ onDismiss }: { onDismiss: () => void }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onDismiss();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onDismiss]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/45 backdrop-blur-sm animate-[fadeIn_150ms_ease]"
+        onClick={onDismiss}
+        aria-hidden
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mercari-guide-title"
+        className="relative flex max-h-[min(90vh,800px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-card-border bg-white shadow-card-hover"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-card-border px-4 py-3">
+          <h2
+            id="mercari-guide-title"
+            className="pr-8 text-lg font-bold text-sakura-900"
+          >
+            วิธีประมูล Mercari
+          </h2>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="shrink-0 rounded-lg p-2 text-muted hover:bg-sakura-100 hover:text-sakura-900"
+            aria-label="ปิด"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <Image
+            src={mercariHero}
+            alt="คำแนะนำการประมูล Mercari"
+            className="h-auto w-full object-contain"
+            sizes="(max-width: 768px) 100vw, 768px"
+          />
+        </div>
+        <div className="shrink-0 border-t border-card-border bg-sakura-50/80 px-4 py-4">
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="btn-gradient w-full rounded-xl py-3 text-center text-sm font-semibold"
+          >
+            เข้าใจแล้ว
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function SearchLinkTab({
+  platform,
+}: {
+  platform: AuctionPlatform;
+}) {
   const [url, setUrl] = useState("");
   const [firstBidPrice, setFirstBidPrice] = useState("");
   const [intlShippingType, setIntlShippingType] = useState("");
@@ -432,8 +510,31 @@ export default function SearchLinkTab() {
     null,
   );
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [mercariGuideOpen, setMercariGuideOpen] = useState(false);
   const auctionsRef = useRef(auctions);
   auctionsRef.current = auctions;
+
+  const dismissMercariGuide = useCallback(() => {
+    try {
+      localStorage.setItem(MERCARI_GUIDE_STORAGE_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setMercariGuideOpen(false);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (platform !== "mercari") {
+      setMercariGuideOpen(false);
+      return;
+    }
+    try {
+      if (localStorage.getItem(MERCARI_GUIDE_STORAGE_KEY)) return;
+    } catch {
+      /* show guide */
+    }
+    setMercariGuideOpen(true);
+  }, [platform]);
 
   // Load pending auctions from DB on mount
   useEffect(() => {
@@ -487,11 +588,14 @@ export default function SearchLinkTab() {
   const handleMock = useCallback(
     async (auctionId: number, action: "outbid" | "end-time") => {
       try {
-        await fetch(`${API_ENDUSER_PREFIX}/purchase-requests/${auctionId}/mock`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
-        });
+        await fetch(
+          `${API_ENDUSER_PREFIX}/purchase-requests/${auctionId}/mock`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action }),
+          },
+        );
       } catch (err) {
         console.error(err);
       }
@@ -502,11 +606,14 @@ export default function SearchLinkTab() {
   const handleBidSubmit = useCallback(
     async (auctionId: number, amount: number) => {
       try {
-        const res = await fetch(`${API_ENDUSER_PREFIX}/purchase-requests/${auctionId}/bids`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ price: amount }),
-        });
+        const res = await fetch(
+          `${API_ENDUSER_PREFIX}/purchase-requests/${auctionId}/bids`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ price: amount }),
+          },
+        );
         const json = await res.json();
         if (res.ok && json.success) {
           setAuctions((prev) =>
@@ -606,18 +713,45 @@ export default function SearchLinkTab() {
     }
   };
 
+  const isMercari = platform === "mercari";
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-8">
+      {isMercari && mercariGuideOpen && (
+        <MercariGuideModal onDismiss={dismissMercariGuide} />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8 items-start">
         {/* ── Left: Form ── */}
         <div className="space-y-4 lg:sticky lg:top-24">
           <div>
-            <h2 className="text-xl font-bold text-sakura-900">
-              ประมูลด้วยตนเอง
-            </h2>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-xl font-bold text-sakura-900">
+                ประมูลด้วยตนเอง
+              </h2>
+              {isMercari && (
+                <button
+                  type="button"
+                  onClick={() => setMercariGuideOpen(true)}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-sakura-600 hover:text-sakura-800 hover:underline"
+                >
+                  <HelpCircle className="h-4 w-4 shrink-0" aria-hidden />
+                  วิธีใช้ Mercari
+                </button>
+              )}
+            </div>
             <p className="text-sm text-muted-dark mt-1">
-              วางลิงค์สินค้าจาก Yahoo Auctions Japan
-              เราจะดึงข้อมูลและติดตามราคาให้อัตโนมัติ
+              {isMercari ? (
+                <>
+                  วางลิงค์สินค้าจาก Mercari Japan
+                  เราจะดึงข้อมูลและติดตามราคาให้อัตโนมัติ
+                </>
+              ) : (
+                <>
+                  วางลิงค์สินค้าจาก Yahoo Auctions Japan
+                  เราจะดึงข้อมูลและติดตามราคาให้อัตโนมัติ
+                </>
+              )}
             </p>
           </div>
 
@@ -641,7 +775,11 @@ export default function SearchLinkTab() {
                     required
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://auctions.yahoo.co.jp/jp/auction/..."
+                    placeholder={
+                      isMercari
+                        ? "https://jp.mercari.com/item/..."
+                        : "https://auctions.yahoo.co.jp/jp/auction/..."
+                    }
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-card-border
                                bg-sakura-50/50 text-sakura-900 text-sm placeholder:text-muted
                                focus:outline-none focus:ring-2 focus:ring-sakura-400 focus:border-transparent
@@ -649,7 +787,9 @@ export default function SearchLinkTab() {
                   />
                 </div>
                 <p className="mt-1.5 text-xs text-muted">
-                  รองรับ Yahoo Auctions Japan
+                  {isMercari
+                    ? "รองรับ Mercari Japan"
+                    : "รองรับ Yahoo Auctions Japan"}
                 </p>
               </div>
 

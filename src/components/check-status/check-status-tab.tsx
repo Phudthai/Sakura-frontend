@@ -947,7 +947,7 @@ export default function CheckStatusTab() {
                   กีกรัม
                 </th>
                 <th className="px-5 py-4 text-right text-xs font-semibold text-muted-dark uppercase tracking-wider">
-                  ค่าส่งเรือ
+                  ค่าส่งแอร์
                 </th>
                 <th className="px-5 py-4 text-right text-xs font-semibold text-muted-dark uppercase tracking-wider">
                   โอนมาแล้ว

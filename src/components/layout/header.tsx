@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+  useCallback,
+} from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
@@ -29,15 +35,29 @@ interface HeaderProps {
   onSearch?: (keyword: string) => void;
   tabs?: ReadonlyArray<{ id: string; label: string }>;
   currentTab?: string;
+  /** When this value changes (e.g. after navigation), closes the auction platform dropdown */
+  auctionPlatformMenuKey?: string;
 }
 
-export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
+export default function Header({
+  onSearch,
+  tabs,
+  currentTab,
+  auctionPlatformMenuKey,
+}: HeaderProps) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [showDropdown, setShowDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
+  const [auctionTabOpen, setAuctionTabOpen] = useState(false);
+  const [auctionMenuPos, setAuctionMenuPos] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+  const auctionTabBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setPortalReady(true);
@@ -46,6 +66,52 @@ export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    setAuctionTabOpen(false);
+  }, [auctionPlatformMenuKey]);
+
+  const updateAuctionMenuPosition = useCallback(() => {
+    const el = auctionTabBtnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    const minW = 200;
+    const w = Math.max(r.width, minW);
+    let left = r.left;
+    if (typeof window !== "undefined") {
+      left = Math.min(
+        Math.max(pad, left),
+        window.innerWidth - w - pad,
+      );
+    }
+    setAuctionMenuPos({
+      top: r.bottom + 8,
+      left,
+      width: w,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!auctionTabOpen) return;
+    updateAuctionMenuPosition();
+    const onScrollOrResize = () => updateAuctionMenuPosition();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [auctionTabOpen, updateAuctionMenuPosition]);
+
+  useEffect(() => {
+    if (!auctionTabOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAuctionTabOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [auctionTabOpen]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -429,25 +495,102 @@ export default function Header({ onSearch, tabs, currentTab }: HeaderProps) {
               className="max-w-[1400px] mx-auto overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.35)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/30"
             >
               <nav className="flex w-max min-w-full flex-nowrap px-4 md:px-6">
-                {tabs.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/?tab=${t.id}`}
-                    className={`shrink-0 px-4 sm:px-5 py-3.5 text-sm font-medium border-b-4 transition-all whitespace-nowrap
+                {tabs.map((t) =>
+                  t.id === "search_link" ? (
+                    <div key={t.id} className="shrink-0 flex">
+                      <button
+                        ref={auctionTabBtnRef}
+                        type="button"
+                        aria-haspopup="menu"
+                        aria-expanded={auctionTabOpen}
+                        aria-controls="auction-platform-menu"
+                        id="auction-platform-trigger"
+                        onClick={() => {
+                          setAuctionTabOpen((o) => {
+                            const next = !o;
+                            if (next) {
+                              queueMicrotask(() => updateAuctionMenuPosition());
+                            }
+                            return next;
+                          });
+                        }}
+                        className={`flex items-center gap-1.5 px-4 sm:px-5 py-3.5 text-sm font-medium border-b-4 transition-all whitespace-nowrap
                   ${
                     currentTab === t.id
                       ? "border-white text-white bg-white/15 font-semibold"
                       : "border-transparent text-white/70 hover:text-white hover:border-white/40 hover:bg-white/5"
                   }`}
-                  >
-                    {t.label}
-                  </Link>
-                ))}
+                      >
+                        {t.label}
+                        <ChevronDown
+                          className={`h-4 w-4 shrink-0 transition-transform ${
+                            auctionTabOpen ? "rotate-180" : ""
+                          }`}
+                          aria-hidden
+                        />
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      key={t.id}
+                      href={`/?tab=${t.id}`}
+                      className={`shrink-0 px-4 sm:px-5 py-3.5 text-sm font-medium border-b-4 transition-all whitespace-nowrap
+                  ${
+                    currentTab === t.id
+                      ? "border-white text-white bg-white/15 font-semibold"
+                      : "border-transparent text-white/70 hover:text-white hover:border-white/40 hover:bg-white/5"
+                  }`}
+                    >
+                      {t.label}
+                    </Link>
+                  ),
+                )}
               </nav>
             </div>
           </div>
         </div>
       )}
+
+      {portalReady &&
+        auctionTabOpen &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[45]"
+              aria-hidden
+              onClick={() => setAuctionTabOpen(false)}
+            />
+            <div
+              id="auction-platform-menu"
+              role="menu"
+              aria-labelledby="auction-platform-trigger"
+              className="fixed z-[55] overflow-hidden rounded-xl border border-white/40 bg-gradient-header py-1 shadow-header animate-fade-slide-in"
+              style={{
+                top: auctionMenuPos.top,
+                left: auctionMenuPos.left,
+                minWidth: auctionMenuPos.width || 200,
+              }}
+            >
+              <Link
+                role="menuitem"
+                href="/?tab=search_link&platform=yahoo"
+                onClick={() => setAuctionTabOpen(false)}
+                className="block px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20 transition-colors"
+              >
+                Yahoo Auctions Japan
+              </Link>
+              <Link
+                role="menuitem"
+                href="/?tab=search_link&platform=mercari"
+                onClick={() => setAuctionTabOpen(false)}
+                className="block px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20 transition-colors border-t border-white/15"
+              >
+                Mercari
+              </Link>
+            </div>
+          </>,
+          document.body,
+        )}
     </header>
   );
 }

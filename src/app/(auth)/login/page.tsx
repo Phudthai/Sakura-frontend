@@ -141,7 +141,7 @@ export default function LoginPage() {
         <div className="space-y-2">
           {[
             { label: 'Admin', email: 'admin@sakura.com' },
-            { label: 'Customer', email: 'customer1@example.com' },
+            { label: 'Customer', email: 'customer@sakura.com' },
           ].map((demo) => (
             <button
               key={demo.email}

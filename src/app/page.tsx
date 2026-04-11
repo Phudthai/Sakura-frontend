@@ -3,7 +3,9 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/layout/header";
-import SearchLinkTab from "@/components/search-link/search-link-tab";
+import SearchLinkTab, {
+  type AuctionPlatform,
+} from "@/components/search-link/search-link-tab";
 import CheckStatusTab from "@/components/check-status/check-status-tab";
 import DomesticPendingTab from "@/components/check-status/domestic-pending-tab";
 
@@ -18,11 +20,17 @@ type TabId = (typeof TABS)[number]["id"];
 function HomeContent() {
   const searchParams = useSearchParams();
   const tab = (searchParams.get("tab") as TabId) ?? "check_status";
+  const platform: AuctionPlatform =
+    searchParams.get("platform") === "mercari" ? "mercari" : "yahoo";
 
   return (
     <div className="min-h-screen bg-body">
       {/* Header with tabs */}
-      <Header tabs={TABS} currentTab={tab} />
+      <Header
+        tabs={TABS}
+        currentTab={tab}
+        auctionPlatformMenuKey={`${tab}-${platform}`}
+      />
 
       {/* Tab: check_status */}
       {tab === "check_status" && <CheckStatusTab />}
@@ -31,7 +39,7 @@ function HomeContent() {
       {tab === "domestic_pending" && <DomesticPendingTab />}
 
       {/* Tab: search_link */}
-      {tab === "search_link" && <SearchLinkTab />}
+      {tab === "search_link" && <SearchLinkTab platform={platform} />}
     </div>
   );
 }
